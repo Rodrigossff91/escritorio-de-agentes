@@ -1527,6 +1527,14 @@ function rotinaDeLideres() {
     const po = avatares.get('po:' + x.setor);
     if (po) po.dados.missao = ultimo?.rotinas?.estado?.po?.[x.setor]?.rodando ? 'escrevendo o resumo da semana' : '';
   }
+  // agente do WhatsApp indo reiniciar um número travado
+  const waAg = avatares.get('fixo:whatsapp'), waAcao = ultimo?.whatsappAuto?.acao;
+  if (waAg) {
+    if (waAcao && waAg.lazer !== 'datacenter' && waAg.modo === 'parado') { liberar(waAg); waAg.lazer = 'datacenter'; waAg.tLazer = 9999; definirDestino(waAg, true); }
+    if (!waAcao && waAg.lazer === 'datacenter' && waAg.tLazer > 900) waAg.tLazer = entre(5, 20);
+    if (waAcao) waAg.dados.missao = `reiniciando o WhatsApp da ${curto(waAcao.loja, 30)}`;
+    else if (String(waAg.dados.missao || '').startsWith('reiniciando o WhatsApp')) waAg.dados.missao = '';
+  }
   const reu = (ultimo?.reunioes || []).find(r => r.status === 'andando');
   for (const id of reu?.participantes || []) {
     const a = avatares.get('fixo:' + id);

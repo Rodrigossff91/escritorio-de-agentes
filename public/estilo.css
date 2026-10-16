@@ -1016,3 +1016,7 @@ details.meta.concluida{opacity:.75}
 .regras-txt li button{border:0;background:none;font-size:16px;color:var(--sutil);padding:0 4px}
 .form-regra{display:flex;gap:8px}
 .form-regra input{flex:1}
+.wa-auto{display:flex;gap:10px;align-items:flex-start;background:var(--superficie-2);border-radius:12px;padding:10px 12px;cursor:pointer}
+.wa-auto input{margin-top:3px;accent-color:var(--destaque)}
+.wa-auto span{display:flex;flex-direction:column;gap:2px}
+.wa-auto b{font-size:13.5px;font-weight:600}.wa-auto small{color:var(--tinta-2);font-size:12px}

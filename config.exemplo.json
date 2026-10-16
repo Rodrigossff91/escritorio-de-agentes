@@ -320,7 +320,8 @@
         6
       ],
       "minimoMensagens7d": 10,
-      "bancos": []
+      "bancos": [],
+      "autoReiniciar": true
     },
     "resumoManha": {
       "ativo": true,

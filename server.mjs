@@ -987,15 +987,49 @@ async function conferirWhatsapp() {
       if (n7 < minimo) continue; // número sem movimento normal: silêncio não quer dizer nada
       const base = { servidor: b.sistema, setor: b.setor, semDiagnostico: true };
       if (estado === 'open' && parado >= limite)
-        problemas.push({ ...base, chave: 'wa:' + nome, titulo: `WhatsApp da ${loja} (${b.sistema}) parou de receber mensagens desde ${horaCurta(ultima)}`,
-          aviso: `O número aparece como conectado, mas não chega mensagem há ${Math.round(parado / 60)}h de horário comercial. Provável travamento: reinicie a conexão desse número no Evolution (normalmente volta sem QR). As mensagens desde ${horaCurta(ultima)} estão no celular, mas a IA não respondeu.` });
+        problemas.push({ ...base, travado: true, numero: nome, banco: b.container, loja, chave: 'wa:' + nome, titulo: `WhatsApp da ${loja} (${b.sistema}) parou de receber mensagens desde ${horaCurta(ultima)}`,
+          aviso: cfg.autoReiniciar ? `O número aparece como conectado, mas não chega mensagem há ${Math.round(parado / 60)}h de horário comercial. O agente do WhatsApp vai reiniciar a conexão sozinho. As mensagens desde ${horaCurta(ultima)} estão no celular, mas a IA não respondeu.` : `O número aparece como conectado, mas não chega mensagem há ${Math.round(parado / 60)}h de horário comercial. Provável travamento: reinicie a conexão desse número no Evolution (normalmente volta sem QR). As mensagens desde ${horaCurta(ultima)} estão no celular, mas a IA não respondeu.` });
       else if (estado !== 'open')
         problemas.push({ ...base, chave: 'wa:' + nome, titulo: `WhatsApp da ${loja} (${b.sistema}) está desconectado`,
           aviso: `O número saiu do ar (estado: ${estado}). Pode ser preciso ler o QR de novo no painel (WhatsApp › Conexão).` });
     }
   }
-  whatsapp = { problemas, numeros, conferidoEm: agora };
+  whatsapp = { ...whatsapp, problemas, numeros, conferidoEm: agora };
+  // número travado (conectado mas sem receber): o agente do WhatsApp reinicia só a conexão dele
+  if (cfg.autoReiniciar) for (const p of problemas.filter(x => x.travado)) await reiniciarNumero(p).catch(e => console.error('whatsapp reiniciar:', e.message));
   avisar();
+}
+// reinício automático da conexão de um número travado (a dona autorizou; dá para desligar no painel)
+const chavesEvolution = new Map();
+async function chaveDaEvolution(container) {
+  const c = chavesEvolution.get(container);
+  if (c && Date.now() - c.em < 3600_000) return c.chave;
+  const r = await rodar('docker', ['exec', container, 'printenv', 'AUTHENTICATION_API_KEY'], null, 15_000);
+  const chave = r.saida.trim();
+  if (!chave) throw new Error('não achei a chave da Evolution em ' + container);
+  chavesEvolution.set(container, { chave, em: Date.now() });
+  return chave;
+}
+async function reiniciarNumero(p) {
+  const b = (config.rotinas?.whatsapp?.bancos || []).find(x => x.container === p.banco);
+  if (!b?.api || !b.apiContainer) return;
+  const hist = (estadoRotinas.whatsappReinicios ||= []);
+  const ultimo = hist.find(h => h.numero === p.numero);
+  if (ultimo && Date.now() - ultimo.t < 3 * 3600_000) {
+    if (!ultimo.avisouFalha && ultimo.ok) { ultimo.avisouFalha = true; gravarRotinas(); notificar('falha', `O WhatsApp da ${p.loja} continua travado mesmo depois de reiniciar. Precisa de alguém olhar (talvez ler o QR de novo).`); }
+    return;
+  }
+  const chave = await chaveDaEvolution(b.apiContainer);
+  whatsapp.acao = { loja: p.loja, t: Date.now() }; avisar();
+  let ok = false, detalhe = '';
+  try {
+    const r = await fetch(`${b.api}/instance/restart/${encodeURIComponent(p.numero)}`, { method: 'POST', headers: { apikey: chave }, signal: AbortSignal.timeout(30_000) });
+    ok = r.ok; detalhe = ok ? '' : `HTTP ${r.status}`;
+  } catch (e) { detalhe = e.message; }
+  hist.unshift({ t: Date.now(), numero: p.numero, loja: p.loja, sistema: p.servidor, ok, detalhe: censurarTexto(detalhe).slice(0, 120) });
+  estadoRotinas.whatsappReinicios = hist.slice(0, 50); gravarRotinas();
+  notificar(ok ? 'esperando' : 'falha', ok ? `O WhatsApp da ${p.loja} travou e o agente do WhatsApp reiniciou a conexão. Daqui a 15 minutos eu confiro se as mensagens voltaram.` : `O WhatsApp da ${p.loja} travou e não consegui reiniciar (${detalhe}). Precisa de alguém olhar.`);
+  if (ok) setTimeout(() => conferirWhatsappR(), 15 * 60_000);
 }
 const conferirWhatsappR = rotina('whatsapp', conferirWhatsapp);
 setInterval(conferirWhatsappR, 60_000 * Math.max(5, config.rotinas?.whatsapp?.minutos || 60));
@@ -2826,6 +2860,7 @@ async function dadosDoPainel() {
     if (d.status === 'publicado' && d.fim > desde) atividade.push({ t: d.fim, tipo: 'publicado', setor: d.setor, texto: `Publicado em produção: ${curto(semQuebra(d.resumo), 100)}` });
   }
   for (const v of previas) if (v.criada > desde) atividade.push({ t: v.criada, tipo: 'previa', setor: v.setor, sessao: v.sessao, texto: `${v.agente} abriu uma prévia: ${curto(v.descricao, 100)}` });
+  for (const h of estadoRotinas.whatsappReinicios || []) if (h.t > desde) atividade.push({ t: h.t, tipo: h.ok ? 'resolvido' : 'incidente', setor: config.rotinas?.whatsapp?.bancos?.find(b => b.sistema === h.sistema)?.setor || null, texto: h.ok ? `Agente do WhatsApp reiniciou a conexão da ${h.loja} (estava travada)` : `Não deu para reiniciar o WhatsApp da ${h.loja}: ${h.detalhe}` });
   for (const p of projetos) if (p.criado > desde) atividade.push({ t: p.criado, tipo: 'projeto', setor: p.setor, texto: `Novo projeto com o gerente: ${p.titulo}` });
   for (const i of ideias) if (i.mandada > desde) atividade.push({ t: i.mandada, tipo: 'ideia', setor: i.setor, texto: `Ideia virou tarefa: ${i.titulo}` });
   atividade.sort((a, b) => b.t - a.t);
@@ -2883,6 +2918,7 @@ function foto() {
     nomeServidor: config.nomeServidor || 'servidor',
     telegram: telegram ? { ligado: true, eventos: telegram.eventos } : { ligado: false }, minhaSala: config.minhaSala || {},
     especialidades: regrasPapel.map(({ id, nome, cor, instrucao }) => ({ id, nome, cor, instrucao, ...(infoEspecialistas[id] || {}) })),
+    whatsappAuto: { ativo: !!config.rotinas?.whatsapp?.autoReiniciar, reinicios: (estadoRotinas.whatsappReinicios || []).slice(0, 10), acao: whatsapp.acao && Date.now() - whatsapp.acao.t < 5 * 60_000 ? whatsapp.acao : null },
     contas: Object.keys(config.contas || { pessoal: '' }), regras: config.regras || { textos: [], protegidos: [] },
     departamentos: deps().map(d => ({ ...d, estado: estadoDeps()[d.id] || {} })), ajuda: config.ajuda || [], propostasMelhoria: propostasMelhoria.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 3 * 864e5).slice(0, 20), propostasRH: propostasRH.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 7 * 864e5).slice(0, 20),
     convites: convites.map(({ hash, ...c }) => ({ ...c, ativoAgora: conviteAtivo(c), projeto: nomeSetor(c.setor) })),
@@ -3149,6 +3185,11 @@ const servidor = http.createServer(async (req, res) => {
     if (rota === '/api/relatorios' && req.method === 'GET') return json(res, 200, relatorios.filter(r => !r.emRevisao));
     if (rota === '/api/painel' && req.method === 'GET') return json(res, 200, await dadosDoPainel());
     if (rota === '/api/rotinas/resumo/rodar' && req.method === 'POST') { const r = await resumoDaManha('painel'); return json(res, 200, r); }
+    if (rota === '/api/whatsapp/auto' && req.method === 'POST') {
+      let d; try { d = JSON.parse(await lerCorpo(req, 1024) || '{}'); } catch { d = {}; }
+      editarConfig(c => { c.rotinas.whatsapp.autoReiniciar = !!d.ativo; }); avisar();
+      return json(res, 200, { ok: true });
+    }
     if (rota === '/api/regras' && req.method === 'POST') {
       let d; try { d = JSON.parse(await lerCorpo(req, 32 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
       return json(res, 200, salvarRegras(d));
