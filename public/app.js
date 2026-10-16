@@ -337,7 +337,7 @@ function aplicarHumor(corpo, dt) {
 const peles = ['#F5C4B3', '#E7B08E', '#C68A63', '#8D5A3B'];
 const cabelos = ['#2C2C2A', '#633806', '#412402', '#BA7517', '#5F5E5A'];
 const nomes = ['Ana', 'Bia', 'Caio', 'Duda', 'Enzo', 'Fê', 'Gabi', 'Hugo', 'Iara', 'João', 'Kika', 'Léo', 'Malu', 'Nina', 'Otto', 'Pri', 'Rafa', 'Sol', 'Theo', 'Vivi'];
-const nomesEquipe = ['Alice', 'Bento', 'Cora', 'Davi', 'Elis', 'Fred', 'Gael', 'Helô', 'Igor', 'Jade', 'Kauã', 'Lara', 'Miguel', 'Nara', 'Oto', 'Pietra', 'Quim', 'Rosa', 'Saulo', 'Tati', 'Ugo', 'Vera', 'Wagner', 'Xica', 'Yuri', 'Zezé', 'Amora', 'Benê', 'Caco', 'Dora'];
+const nomesEquipe = ['Alice', 'Bento', 'Cora', 'Davi', 'Elis', 'Fred', 'Gael', 'Helô', 'Igor', 'Jade', 'Kauã', 'Lara', 'Miguel', 'Nara', 'Oto', 'Pietra', 'Quim', 'Rosa', 'Saulo', 'Tati', 'Ugo', 'Vera', 'Wagner', 'Xica', 'Yuri', 'Zezé', 'Amora', 'Benê', 'Caco', 'Dora', 'Edu', 'Flora', 'Guto', 'Íris', 'Joca', 'Lino', 'Mel', 'Nico', 'Olga', 'Paco', 'Rui', 'Sara', 'Tomás', 'Valu'];
 const corConta = { pessoal: '#1D9E75', empresa: '#7F77DD' };
 // especialidades vêm do servidor (config.json); generalista é quem ainda não mostrou área
 let PAPEIS = { generalista: { nome: 'Generalista', cor: '#F1EFE8' } };
@@ -516,12 +516,16 @@ function construir(estado) {
   const colsAla = Math.max(1, Math.min(4, Math.ceil(Math.sqrt(setores.length / 2 * 1.2))));
   const COLS = colsAla * 2 + 1, centro = colsAla;
   const linhas = Math.max(1, Math.ceil(setores.length / (COLS - 1)));
+  // andar da empresa: as salas dos departamentos ficam nas fileiras do fundo, acima dos projetos
+  const deptos = estado.departamentos || [];
+  const linhasDep = deptos.length ? Math.ceil(deptos.length / (COLS - 1)) : 0;
   const passoX = L + C, passoZ = P + C;
   const colunasChao = Math.max(COLS, 6);
-  const largura = colunasChao * passoX + C, profundidade = (linhas + 1) * passoZ + C;
+  const largura = colunasChao * passoX + C, profundidade = (linhasDep + linhas + 1) * passoZ + C;
   const xCol = c => (c - (COLS - 1) / 2) * passoX;
   const z0 = -profundidade / 2 + C + P / 2;
-  const zLinha = r => z0 + r * passoZ;
+  const zLinha = r => z0 + (r + linhasDep) * passoZ;
+  const zDep = r => z0 + r * passoZ;
 
   // corredores com piso de pedra clara (as salas têm piso próprio), laje do prédio e área externa
   const chao = new THREE.Mesh(new THREE.PlaneGeometry(largura, profundidade), new THREE.MeshStandardMaterial({ map: pedra(largura / 4, profundidade / 4), roughness: 0.9 }));
@@ -535,6 +539,22 @@ function construir(estado) {
   // passadeiras: uma em cada corredor de fileira e uma no corredor principal (átrio)
   const passadeira = mat('#7A4A3A');
   for (let r = 0; r < linhas; r++) caixa(largura - 3, 0.025, 1.6, passadeira, 0, 0.02, zLinha(r) + P / 2 + C / 2, predio);
+  for (let r = 0; r < linhasDep; r++) caixa(largura - 3, 0.025, 1.6, passadeira, 0, 0.02, zDep(r) + P / 2 + C / 2, predio);
+  // salas dos departamentos: 4 mesas, mesa redonda de conversa, quadro e planta
+  const vagasDep = [];
+  for (let r = 0; r < linhasDep; r++) for (let c = 0; c < COLS; c++) if (c !== centro) vagasDep.push([c, r]);
+  deptos.forEach((dp, i) => {
+    const [gc, gr] = vagasDep[i];
+    const s = sala('dep-' + dp.id, dp.nome, dp.cor, xCol(gc), zDep(gr), false);
+    s.departamento = dp.id;
+    caixa(L - 2.4, 0.03, P - 3.2, clarear(dp.cor, 0.62), s.cx, 0.07, s.cz - 0.2, predio);
+    for (const dz of [-2.6, 1.3]) for (const dx of [-3.7, 3.7]) montarMesa(s, s.cx + dx, s.cz + dz);
+    cilindro(0.95, 0.95, 0.08, '#5F5E5A', s.cx, 0.78, s.cz - 0.6, predio);
+    cilindro(0.12, 0.12, 0.74, '#444441', s.cx, 0.38, s.cz - 0.6, predio);
+    planta(predio, s.cx + L / 2 - 0.8, s.cz + P / 2 - 0.8, s);
+    quadroArte(predio, s.cx, 1.75, s.cz - P / 2 + 0.17, dp.cor, i + 20);
+  });
+  for (let r = 0; r < linhasDep; r++) arvore(predio, xCol(centro), zDep(r), r + 40);
   caixa(2.2, 0.025, profundidade - 3, passadeira, xCol(centro), 0.02, 0, predio);
   // átrio: canteiros separando as alas, bancos e plantas grandes
   for (let r = 1; r < linhas; r++) {
@@ -693,7 +713,7 @@ function construir(estado) {
 
   // quadro de metas do lado de fora, virado para a câmera
   // Painel do dia no fundo do átrio: o telão encosta na parede do fundo do prédio e não tapa nenhuma sala
-  const sp = sala('painel', 'Painel do dia', '#2C2C2A', xCol(centro), zLinha(0), false);
+  const sp = sala('painel', 'Painel do dia', '#2C2C2A', xCol(centro), linhasDep ? zDep(0) : zLinha(0), false);
   quadro = montarQuadro(predio, sp.cx, sp.cz - P / 2 + 0.45);
   sp.rotulo.position.y = 7.3;
   for (const [dx, c] of [[-2.6, '#EF9F27'], [0, '#7F77DD'], [2.6, '#5DCAA5']]) {
@@ -1247,7 +1267,7 @@ function aplicar(estado) {
     PAPEIS = Object.fromEntries([...estado.especialidades.map(e => [e.id, { nome: e.nome, cor: e.cor }]), ['generalista', { nome: 'Generalista', cor: '#F1EFE8' }]]);
   }
   $('empresa').textContent = 'Escritório ' + (estado.empresa || '');
-  const assinatura = JSON.stringify([estado.setores.map(s => [s.id, s.nome, s.cor]), estado.minhaSala || {}, (estado.servidores || []).map(g => [g.nome, g.containers.length])]);
+  const assinatura = JSON.stringify([estado.setores.map(s => [s.id, s.nome, s.cor]), estado.minhaSala || {}, (estado.servidores || []).map(g => [g.nome, g.containers.length]), (estado.departamentos || []).map(d => [d.id, d.nome, d.cor])]);
   if (assinatura !== assinaturaSetores) { assinaturaSetores = assinatura; construir(estado); }
 
   montarEquipe(estado.especialidades || []);
@@ -1396,8 +1416,11 @@ function aplicar(estado) {
 }
 
 // lugar para a equipe fixa: metade estuda nas mesas livres dos setores, o resto onde houver vaga
+function departamentoDe(esp) { return (ultimo?.departamentos || []).find(d => (d.membros || []).includes(esp)); }
 function lugarParaEquipe(a) {
   const livres = id => (salas.get(id)?.vagas || []).filter(v => !v.quem).length;
+  const dp = departamentoDe(a?.dados?.especialidade);
+  if (dp && livres('dep-' + dp.id) && Math.random() < 0.75) return 'dep-' + dp.id;
   if (['devops', 'infra', 'docker', 'deploy', 'observabilidade'].includes(a?.dados?.especialidade) && livres('datacenter') && Math.random() < 0.45) return 'datacenter';
   const setores = [...salas.values()].filter(x => x.setor && x.vagas.filter(v => !v.quem).length >= 3);
   if (setores.length && Math.random() < 0.5) return sortear(setores).id;
@@ -1472,7 +1495,7 @@ function montarEquipe(lista) {
     let a = avatares.get(chave);
     if (a) { a.dados = dados; return; }
     a = criarAvatar(chave, dados, false);
-    a.lazer = e.id === 'estrategia' ? 'diretoria' : lugarParaEquipe();
+    a.lazer = e.id === 'estrategia' ? 'diretoria' : departamentoDe(e.id) && salas.has('dep-' + departamentoDe(e.id).id) ? 'dep-' + departamentoDe(e.id).id : lugarParaEquipe();
     a.tLazer = entre(20, 90);
     definirDestino(a, true);
   });
@@ -2619,6 +2642,7 @@ R.domElement.addEventListener('pointerup', e => {
   if (obj?.userData.rack) { selecionado = null; rackAberto = obj.userData.rack; desenharRack(rackAberto); return; }
   selecionado = null; rackAberto = null; desenharFicha();
   if (obj?.userData.sala && salas.get(obj.userData.sala)?.setor) abrirOrdem(obj.userData.sala);
+  else if (obj?.userData.sala && salas.get(obj.userData.sala)?.departamento) window.abrirPainel?.('empresa');
 });
 R.domElement.addEventListener('wheel', e => {
   e.preventDefault();

@@ -11,9 +11,11 @@
         <div class="gaveta-titulo"><h2>Painel</h2><span class="ao-vivo" id="aoVivoG">ao vivo</span>
           <button class="fechar-gaveta" data-acao="fechar-gaveta" aria-label="Fechar painel">×</button></div>
         <nav class="abas" role="tablist">
-          <button role="tab" data-aba="geral">Visão geral</button>
-          <button role="tab" data-aba="plano">Planejamento</button>
+          <button role="tab" data-aba="geral">Geral</button>
+          <button role="tab" data-aba="plano">Plano</button>
           <button role="tab" data-aba="projetos">Projetos</button>
+          <button role="tab" data-aba="empresa">Empresa</button>
+          <button role="tab" data-aba="financeiro">Financeiro</button>
           <button role="tab" data-aba="publicacoes">Publicações</button>
           <button role="tab" data-aba="equipe">Equipe</button>
           <button role="tab" data-aba="infra">Infra</button>
@@ -31,7 +33,13 @@
   document.querySelector('.palco').appendChild(el);
 
   let aberta = false, aba = 'geral', dados = null, buscando = false, filtroEquipe = '', filtroAtiv = 'tudo';
-  let pubs = null, filtroPub = 'todos', buscandoPub = false;
+  let pubs = null, filtroPub = 'todos', buscandoPub = false, fin = null, buscandoFin = false;
+  async function buscarFin(forcar) {
+    if (buscandoFin || (!forcar && fin && Date.now() - fin.recebido < 60_000)) return;
+    buscandoFin = true;
+    try { const r = await fetch('/api/financeiro'); if (r.ok) { fin = await r.json(); fin.recebido = Date.now(); if (aberta && aba === 'financeiro') desenhar(); } } catch { /* tenta depois */ }
+    buscandoFin = false;
+  }
   const rascunhos = {}, detAbertos = new Set();
   el.addEventListener('toggle', e => { const k = e.target.dataset?.det; if (k) { if (e.target.open) detAbertos.add(k); else detAbertos.delete(k); } }, true);
   async function buscarPub() {
@@ -150,6 +158,14 @@
       detAbertos.delete('nova-meta'); aviso('Meta criada.', null, [523, 784]);
       return;
     }
+    if (f.matches('form.novo-custo')) {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(f));
+      const r = await postar('/api/financeiro/custos', d), j = await r.json().catch(() => ({}));
+      if (!r.ok) return aviso(j.erro || 'Não deu para salvar.', null, [330]);
+      ['custo:nome', 'custo:valor'].forEach(k => delete rascunhos[k]);
+      aviso('Custo cadastrado.'); buscarFin(true); return;
+    }
     if (f.matches('form.nova-reuniao')) {
       e.preventDefault();
       const participantes = [...f.querySelectorAll('input[name="p"]:checked')].map(x => x.value);
@@ -171,6 +187,16 @@
     }
   });
   el.addEventListener('click', async e => {
+    const dr = e.target.closest('[data-dep-rodar]');
+    if (dr) { dr.disabled = true; const r = await postar(`/api/departamentos/${dr.dataset.depRodar}/rodar`), j = await r.json().catch(() => ({})); aviso(r.ok ? (j.mensagem || 'Pronto. O relatório chegou nas Conversas.') : (j.erro || 'Não deu.'), null, r.ok ? [523, 659] : [330]); return; }
+    const dv = e.target.closest('[data-dep-ver]');
+    if (dv) { abrir(false); abrirPapelada('dep-' + dv.dataset.depVer); return; }
+    const ds = e.target.closest('[data-dep-sala]');
+    if (ds) { const s2 = salas.get('dep-' + ds.dataset.depSala); if (s2) { vista.alvoFoco.set(s2.cx, 0, s2.cz); vista.alvoZoom = 3; } abrir(false); return; }
+    const rh = e.target.closest('[data-rh]');
+    if (rh) { const [id, acao] = rh.dataset.rh.split(':'); rh.disabled = true; const r = await postar(`/api/rh/${id}/${acao}`), j = await r.json().catch(() => ({})); aviso(r.ok ? (acao === 'aprovar' ? 'Contratado! O novo especialista já faz parte da equipe.' : 'Proposta recusada.') : (j.erro || 'Não deu.'), null, r.ok ? [523, 659, 784] : [330]); return; }
+    const ca = e.target.closest('[data-custo-apagar]');
+    if (ca) { if (!ca.classList.contains('confirmar')) { ca.classList.add('confirmar'); ca.textContent = 'Apagar?'; return; } await postar(`/api/financeiro/custos/${ca.dataset.custoApagar}/apagar`); buscarFin(true); return; }
     const mb = e.target.closest('[data-meta]');
     if (mb) {
       const [id, acao, passo] = mb.dataset.meta.split(':');
@@ -361,6 +387,7 @@
       const em = (hora, titulo, quem, tipo) => { const [h, m] = hm(hora); const t = new Date(d); t.setHours(h, m, 0, 0); if (t > agora) ev.push({ t, titulo, quem, tipo }); };
       if (rc.devops?.ativo !== false) em(rc.devops?.hora || '07:00', 'Ronda da produção', 'DevOps', 'rotina');
       if (rc.resumoManha?.ativo !== false) em(rc.resumoManha?.hora || '08:00', 'Resumo da manhã para você', 'Escritório', 'rotina');
+      for (const dp of ultimo?.departamentos || []) { const r = dp.rotina; if (r?.ativo && (r.freq === 'mensal' ? d.getDate() === r.dia : d.getDay() === r.dia)) em(r.hora, `Rotina de ${dp.nome}`, dp.nome, 'rotina'); }
       if (rc.poSemanal?.ativo !== false && d.getDay() === (rc.poSemanal?.dia ?? 1)) for (const po of ultimo?.pos || []) em(rc.poSemanal?.hora || '08:00', `Resumo semanal · ${nomeSala(po.setor)}`, po.nome, 'rotina');
       if (rc.estrategiaMensal?.ativo !== false && d.getDate() === (rc.estrategiaMensal?.diaDoMes || 1)) em(rc.estrategiaMensal?.hora || '09:00', 'Memorando estratégico', 'Estrategista', 'rotina');
       if (rc.aprendizado?.ativo && d.getDay() === rc.aprendizado.dia) em(rc.aprendizado.hora || '17:00', 'Revisão dos manuais (melhorias da equipe)', 'Equipe', 'rotina');
@@ -601,6 +628,59 @@
         ${lista.length ? `<ol class="linha-tempo pubs">${linha}</ol>` : '<p class="vazio-g">Nenhuma publicação nesse filtro.</p>'}</section>`;
   }
 
+  const DIAS_S = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+  const rotinaTxt = r => !r?.ativo ? 'sob demanda' : r.freq === 'mensal' ? `todo dia ${r.dia} do mês às ${r.hora}` : `toda ${DIAS_S[r.dia]} às ${r.hora}`;
+  function empresaAba() {
+    const ds = ultimo?.departamentos || [], props = (ultimo?.propostasRH || []).filter(p => p.status === 'aguardando');
+    const nomeEsp = id => avatares.get('fixo:' + id)?.nome ? `${avatares.get('fixo:' + id).nome} (${(ultimo?.especialidades || []).find(e => e.id === id)?.nome || id})` : ((ultimo?.especialidades || []).find(e => e.id === id)?.nome || id);
+    const blocoRH = props.length ? `<section class="bloco alerta-pub"><h3>RH quer contratar</h3><p class="sub">Nada muda sem você aprovar. Ao aprovar, o especialista entra na equipe com o manual abaixo.</p>
+      ${props.map(p => `<div class="contratacao"><div class="ct-topo"><span class="avatar" style="background:${esc(p.especialista.cor)}">${esc(p.especialista.nome.slice(0, 1))}</span><div><b>${esc(p.especialista.nome)}</b><small>${esc(p.especialista.descricao)} · ${esc(p.especialista.modelo)}</small></div></div>
+        <p>${esc(p.motivo)}</p><details><summary>Ver o manual proposto</summary><pre class="manual">${esc(p.especialista.manual)}</pre></details>
+        <div class="pend-acoes"><button data-rh="${esc(p.id)}:recusar">Recusar</button><button class="principal-g" data-rh="${esc(p.id)}:aprovar">Contratar</button></div></div>`).join('')}</section>` : '';
+    return `${blocoRH}<section class="bloco solto"><h3>Departamentos</h3><p class="sub">Cada área tem a sua sala no andar da empresa, os seus especialistas e uma rotina. Os relatórios chegam nas Conversas.</p></section>
+      <div class="deptos">${ds.map(d => {
+        const e = d.estado || {};
+        return `<article class="depto" style="--c:${esc(d.cor)}"><header><i></i><div><b>${esc(d.nome)}</b><small>${esc(rotinaTxt(d.rotina))}</small></div>
+            <span class="dep-st ${e.rodando ? 'rodando' : e.erro ? 'erro' : ''}">${e.rodando ? 'trabalhando…' : e.erro ? 'deu erro' : e.ultima ? 'último ' + esc(quando(e.ultima)) : 'ainda não rodou'}</span></header>
+          <ul class="resp">${(d.responsabilidades || []).map(r => `<li>${esc(r)}</li>`).join('')}</ul>
+          <div class="chips">${(d.membros || []).map(m => `<span class="chip leve">${esc(nomeEsp(m))}</span>`).join('')}</div>
+          <footer><button data-dep-rodar="${esc(d.id)}" ${e.rodando ? 'disabled' : ''}>Pedir agora</button><button data-dep-ver="${esc(d.id)}">Relatórios</button>
+            ${avatares.get('fixo:' + d.lider) ? `<button data-conversar="${esc(d.lider)}">Conversar</button>` : ''}<button data-dep-sala="${esc(d.id)}">Ver a sala</button></footer></article>`;
+      }).join('')}</div>`;
+  }
+  const reais = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+  function financeiroAba() {
+    if (!fin) { buscarFin(); return carregando(); }
+    buscarFin();
+    const ps = fin.projetos.filter(p => p.total > 0 || p.servicos.length || p.memoriaMB || p.usoClaude);
+    const max = Math.max(1, ...ps.map(p => p.total));
+    const semCadastro = !fin.custos.length;
+    const cats = { claude: 'Assinatura do Claude', servidor: 'Servidor (VPS)', dominio: 'Domínio', loja: 'Loja de apps', api: 'API paga', servico: 'Serviço', outro: 'Outro' };
+    const projs = (setoresLista || []).filter(x => x.id !== 'escritorio');
+    return `<div class="kpis">${kpi(reais(fin.totalMensal), 'custo por mês')}${kpi(reais(fin.assinatura), 'assinatura do Claude')}${kpi(reais(fin.servidor), 'servidor')}</div>
+      ${semCadastro ? `<section class="bloco alerta-pub"><h3>Comece cadastrando os custos</h3><p class="sub" style="margin:0">Cadastre a assinatura do Claude (categoria “Assinatura do Claude”) e a VPS (categoria “Servidor”) como custos gerais. O Financeiro divide entre os projetos pelo uso. Depois cadastre domínios, lojas de apps e APIs em cada projeto.</p></section>` : ''}
+      <section class="bloco"><h3>Quanto cada projeto custa por mês</h3><p class="sub">Custos diretos + parte da assinatura do Claude (pelo uso nos últimos 30 dias) + parte do servidor (70% memória, 30% disco). As partes são estimativas.</p>
+        ${ps.length ? `<ul class="fin-barras">${ps.map(p => `<li><span class="bh-nome">${esc(p.nome)}</span><span class="fin-trilho">
+            <i style="width:${p.diretos / max * 100}%;background:${esc(p.cor)}" title="diretos ${reais(p.diretos)}"></i><i style="width:${p.claude / max * 100}%;background:var(--info)" title="Claude ${reais(p.claude)}"></i><i style="width:${p.servidor / max * 100}%;background:var(--aviso)" title="servidor ${reais(p.servidor)}"></i></span>
+            <span class="bh-valor">${reais(p.total)}</span></li>`).join('')}</ul>
+          <ul class="legenda-g"><li><i style="background:var(--g-outros)"></i>custos diretos</li><li><i style="background:var(--info)"></i>parte do Claude</li><li><i style="background:var(--aviso)"></i>parte do servidor</li></ul>` : '<p class="vazio-g">Sem dados ainda.</p>'}</section>
+      <section class="bloco"><h3>Detalhe por projeto</h3>
+        <div class="fin-tabela"><table><thead><tr><th>Projeto</th><th>Uso do Claude</th><th>Memória · disco</th><th>Equivalente na API</th><th>Serviços pagos</th></tr></thead><tbody>
+          ${fin.projetos.map(p => `<tr><td><b>${esc(p.nome)}</b></td><td>${p.usoClaude}%</td><td>${p.memoriaMB} MB · ${(p.discoMB / 1024).toFixed(1)} GB</td><td>${fin.cambio ? reais(p.equivalenteApiUSD * fin.cambio) : 'US$ ' + p.equivalenteApiUSD.toFixed(2)}</td><td>${p.servicos.map(x => `<span class="chip leve">${esc(x)}</span>`).join(' ') || '–'}</td></tr>`).join('')}
+        </tbody></table></div>
+        <p class="rodape-g">“Equivalente na API” é só referência: o escritório usa a assinatura, sem cobrança extra. Os serviços pagos são detectados pelas dependências do código; confirme e cadastre o valor de cada um.</p></section>
+      <section class="bloco"><h3>Custos cadastrados</h3>
+        ${fin.custos.length ? `<ul class="lista-g">${fin.custos.map(c => `<li><b>${esc(c.nome)} · ${reais(c.valor)}${c.recorrencia === 'anual' ? '/ano' : c.recorrencia === 'unico' ? ' (único)' : '/mês'}</b><small>${esc(cats[c.categoria] || c.categoria)} · ${esc(c.setor === 'geral' ? 'geral (dividido entre os projetos)' : nomeSala(c.setor))} <button class="mini-x" data-custo-apagar="${esc(c.id)}">apagar</button></small></li>`).join('')}</ul>` : '<p class="vazio-g">Nenhum custo cadastrado.</p>'}
+        <form class="novo-custo"><input name="nome" data-rascunho="custo:nome" maxlength="80" placeholder="Ex.: Claude Max, VPS, domínio do site" aria-label="Nome do custo" required>
+          <input name="valor" data-rascunho="custo:valor" inputmode="decimal" placeholder="Valor em R$" aria-label="Valor em reais" required>
+          <select name="recorrencia" aria-label="Recorrência"><option value="mensal">por mês</option><option value="anual">por ano</option><option value="unico">uma vez</option></select>
+          <select name="categoria" aria-label="Categoria">${Object.entries(cats).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+          <select name="setor" aria-label="Projeto"><option value="geral">Geral (dividir entre projetos)</option>${projs.filter(x => x.id !== 'geral').map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select>
+          <button type="submit" class="principal-g">Cadastrar</button></form></section>
+      <section class="bloco"><h3>Relatório do Financeiro</h3><p class="sub">Toda sexta às 16h o Financeiro analisa os números, aponta gastos fora do normal e propõe economias.</p>
+        <div class="pend-acoes"><button data-dep-ver="financeiro">Ver relatórios</button><button class="principal-g" data-dep-rodar="financeiro">Pedir análise agora</button></div></section>`;
+  }
+
   function desenhar() {
     if (!aberta) return;
     const foco = document.activeElement;
@@ -609,12 +689,12 @@
     const av = el.querySelector('#aoVivoG');
     if (av) av.textContent = 'ao vivo · ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const pos = conteudo.scrollTop;
-    conteudo.innerHTML = aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : geral();
+    conteudo.innerHTML = aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'empresa' ? empresaAba() : aba === 'financeiro' ? financeiroAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : geral();
     conteudo.scrollTop = pos;
     conteudo.querySelectorAll('[data-rascunho]').forEach(x => { if (rascunhos[x.dataset.rascunho] != null) x.value = rascunhos[x.dataset.rascunho]; });
     conteudo.querySelectorAll('details[data-det]').forEach(x => { if (detAbertos.has(x.dataset.det)) x.open = true; });
     if (aba === 'plano' && !relatoriosCache?.length) carregarRelatorios().then(() => aberta && aba === 'plano' && desenhar());
-    if ((aba === 'plano' || aba === 'equipe') && !setoresLista) carregarSetores().then(() => aberta && desenhar());
+    if ((aba === 'plano' || aba === 'equipe' || aba === 'financeiro') && !setoresLista) carregarSetores().then(() => aberta && desenhar());
   }
 })();
 document.getElementById('bPainel')?.addEventListener('click', () => window.abrirPainel?.());

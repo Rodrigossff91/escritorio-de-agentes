@@ -818,3 +818,40 @@ details.meta.concluida{opacity:.75}
 .linha-convite.apagado{opacity:.6}
 .acoes-convite{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
 .acoes-convite select{font:inherit;font-size:13px;color:var(--texto);background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:5px 8px}
+/* painel: empresa e financeiro */
+.deptos{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:12px}
+.depto{background:var(--superficie);border:1px solid var(--vidro-borda);border-radius:16px;padding:14px;display:flex;flex-direction:column;gap:8px;box-shadow:var(--sombra);font-size:13px;position:relative;overflow:hidden}
+.depto::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--c)}
+.depto header{display:flex;gap:10px;align-items:flex-start}
+.depto header>i{width:30px;height:30px;border-radius:10px;background:color-mix(in srgb,var(--c) 22%,transparent);flex:none}
+.depto header div{display:flex;flex-direction:column;flex:1;min-width:0}
+.depto header b{font-size:14.5px;font-weight:650}.depto header small{color:var(--tinta-2);font-size:12px}
+.dep-st{font-size:11px;color:var(--tinta-2);white-space:nowrap}
+.dep-st.rodando{color:var(--bom);font-weight:600}.dep-st.erro{color:var(--ruim)}
+.depto .resp{margin:0;padding-left:16px;color:var(--tinta-2);display:flex;flex-direction:column;gap:2px}
+.depto footer{display:flex;flex-wrap:wrap;gap:6px;margin-top:auto}
+.depto footer button{border:0;border-radius:99px;padding:5px 11px;font-size:12px;background:var(--superficie-2)}
+.depto footer button:first-child{background:var(--tinta);color:var(--superficie)}
+.contratacao{display:flex;flex-direction:column;gap:6px;padding:10px 0;border-bottom:1px solid var(--vidro-borda);font-size:13px}
+.contratacao:last-child{border-bottom:0}
+.ct-topo{display:flex;gap:10px;align-items:center}.ct-topo div{display:flex;flex-direction:column}.ct-topo small{color:var(--tinta-2);font-size:12px}
+.contratacao .avatar{width:32px;height:32px;border-radius:10px;display:grid;place-items:center;color:#fff;font-weight:650}
+.contratacao p{margin:0}
+.manual{white-space:pre-wrap;font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;background:var(--superficie-2);border-radius:10px;padding:10px;max-height:260px;overflow:auto}
+.fin-barras{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.fin-barras li{display:grid;grid-template-columns:minmax(0,8rem) minmax(0,1fr) auto;gap:10px;align-items:center;font-size:13px}
+.fin-trilho{display:flex;height:12px;background:var(--superficie-2);border-radius:99px;overflow:hidden}
+.fin-trilho i{display:block;height:100%}
+.fin-tabela{overflow-x:auto;border:1px solid var(--vidro-borda);border-radius:12px}
+.fin-tabela table{border-collapse:collapse;width:100%;min-width:560px;font-size:12.5px}
+.fin-tabela th,.fin-tabela td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--vidro-borda);vertical-align:top}
+.fin-tabela th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--tinta-2);font-weight:600}
+.fin-tabela tr:last-child td{border-bottom:0}
+.fin-tabela td{font-variant-numeric:tabular-nums}
+.fin-tabela .chip{margin:1px}
+.novo-custo{display:grid;grid-template-columns:minmax(0,2fr) minmax(0,1fr);gap:8px;margin-top:6px}
+.novo-custo input,.novo-custo select{font:inherit;font-size:13px;color:var(--tinta);background:var(--superficie-2);border:1px solid transparent;border-radius:9px;padding:7px 10px;min-width:0;width:100%}
+.novo-custo input:focus{outline:0;border-color:var(--destaque);background:var(--superficie)}
+.novo-custo .principal-g{border:0;border-radius:99px;padding:7px 14px;background:var(--destaque);color:#fff;font-weight:600;font-size:13px;justify-self:start}
+.mini-x{border:0;background:none;color:var(--tinta-2);font-size:11.5px;padding:0 4px;text-decoration:underline}
+.mini-x.confirmar{color:var(--ruim);font-weight:600}

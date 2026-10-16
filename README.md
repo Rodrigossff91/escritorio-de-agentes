@@ -24,6 +24,7 @@ acompanha tudo num painel e aprova o que vai para produção com um botão.
   manual, modelo e ferramentas próprios. O pedido vai sozinho para o especialista certo.
 - **Painel lateral** (tecla **P**): números do dia e gráficos, quadro do trabalho (fila, fazendo, esperando você,
   feito), metas por projeto, ideias para depois, fichas dos projetos, linha do tempo e saúde do servidor.
+- **Andar da empresa:** RH (contrata especialistas com a sua aprovação), Financeiro (quanto cada projeto custa), Marketing, Inovação, Parcerias, Produto, Segurança, Academia e outras áreas, cada uma com sala, especialistas e rotina.
 - **Reunião:** chame 2 ou 3 especialistas para discutir um problema; eles conversam entre si e entregam uma decisão.
 - **Publicação segura:** os agentes não conseguem publicar em produção sozinhos. Eles preparam o pedido e você aperta
   **Publicar**; o DevOps confere tudo antes. Mudanças de tela podem ganhar um link de prévia antes.

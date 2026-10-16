@@ -110,7 +110,35 @@ No **Painel → Equipe → Reunião**, descreva um problema e escolha 2 ou 3 esp
 reunião, dão a sua visão, discutem entre si e o gerente fecha uma decisão. As tarefas que saem da reunião viram
 ideias planejadas, prontas para mandar. Na reunião eles só leem o projeto: não mexem em nada.
 
-## 7. Painel: planejamento e acompanhamento
+## 7. O andar da empresa (departamentos)
+
+Além das salas dos projetos, o escritório tem um andar com as áreas da empresa. Cada uma tem sala, especialistas e rotina,
+e os relatórios chegam nas **Conversas** (Painel → **Empresa** mostra tudo e tem o botão **Pedir agora**):
+
+| Área | O que faz | Rotina padrão |
+| --- | --- | --- |
+| RH | propõe contratar especialistas quando falta alguém, acompanha o desempenho e propõe treinamentos | todo dia 2 |
+| Financeiro | quanto cada projeto custa, margem, gastos fora do normal e economias | toda sexta |
+| Marketing | proposta de campanha e posts da semana | toda segunda |
+| Inovação | novas áreas para atuar, com nota de chance de dar certo | todo dia 3 |
+| Parcerias | editais, aceleradoras e parceiros | todo dia 10 |
+| Produto | roadmap do mês | todo dia 1 |
+| Segurança | auditoria de segredos e rotas sem proteção | todo dia 15 |
+| Academia | plano de estudos a partir do que foi feito na semana | todo domingo |
+| Comunidade | ideias e rascunhos de posts técnicos | toda quinta |
+| Vendas, Jurídico, Suporte, Dados, Qualidade, Documentação | sob demanda | — |
+
+Nada que mude algo acontece sozinho: quando o RH propõe contratar, você vê o manual do novo especialista e aperta
+**Contratar** (ou recusa).
+
+### Financeiro
+
+No Painel → **Financeiro**, cadastre os custos: a assinatura do Claude e a VPS como custos **gerais** (eles são divididos
+entre os projetos: o Claude pelo uso de cada um, o servidor pela memória e disco) e os custos de cada projeto (domínio,
+lojas de apps, APIs). O painel mostra quanto cada projeto custa por mês e quais **serviços pagos** cada um usa
+(descobertos pelas dependências do código, sem ler senhas).
+
+## 8. Painel: planejamento e acompanhamento
 
 Puxe a aba **PAINEL** na borda direita (ou aperte **P**).
 
@@ -128,7 +156,7 @@ Puxe a aba **PAINEL** na borda direita (ou aperte **P**).
 
 Num passo de meta, aperte **Mandar**: ele vira tarefa e é marcado como feito sozinho quando a equipe entrega.
 
-## 8. Publicar em produção com segurança
+## 9. Publicar em produção com segurança
 
 Os agentes **não conseguem** publicar sozinhos: um gancho bloqueia `git push`, deploy e afins nas tarefas do escritório.
 
@@ -138,7 +166,7 @@ Os agentes **não conseguem** publicar sozinhos: um gancho bloqueia `git push`, 
 
 Mudou alguma tela? O agente pode subir uma **prévia** (`escritorio-previa`) com um link para você ver antes.
 
-## 9. Convidar um amigo para um projeto
+## 10. Convidar um amigo para um projeto
 
 Em **Ajustes → Convidados**, escolha o nome do amigo, **um** projeto, por quanto tempo vale o acesso e o que ele pode fazer:
 
@@ -163,7 +191,7 @@ Fique atento a três coisas:
 Para ele abrir o link, ele precisa alcançar o escritório: compartilhe a máquina com ele no Tailscale
 (painel do Tailscale → Machines → a máquina → Share).
 
-## 10. Rotinas automáticas
+## 11. Rotinas automáticas
 
 Configure horários em `rotinas` no `config.json`:
 
@@ -175,7 +203,7 @@ Configure horários em `rotinas` no `config.json`:
 | Memorando estratégico | dia 1 de cada mês | análise da empresa pelo Estrategista |
 | Melhorias da equipe | toda sexta | especialistas propõem ajustes nos manuais |
 
-## 11. Abrir pelo celular
+## 12. Abrir pelo celular
 
 O escritório só escuta na própria máquina, de propósito. Para abrir de fora com segurança, instale o
 [Tailscale](https://tailscale.com) no servidor e no celular e rode:
