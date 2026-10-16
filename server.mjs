@@ -1055,12 +1055,12 @@ async function memorandoEstrategico(origem = 'agenda') {
     const prompt = `Escreva o MEMORANDO ESTRATÉGICO do mês para a dona da ${EMPRESA()}.
 ${panoramaDaEmpresa()}
 
-Leia os backlogs e as notas do cofre que ajudarem (04-projetos, 02-decisoes, e o seu arquivo ${String(EMPRESA()).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-')}-estrategia.md se existir). Atualize o seu arquivo de estratégia com o essencial deste mês.
+Leia os backlogs e as notas do cofre que ajudarem (04-projetos, 02-decisoes, e o seu arquivo ${config.notaEstrategia || String(EMPRESA()).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-') + '-estrategia'}.md se existir). Atualize o seu arquivo de estratégia com o essencial deste mês.
 Responda APENAS JSON: {"titulo": "curto", "resumo": "3 frases simples", "destaques": ["..."], "riscos": ["..."], "recomendacoes": ["ação concreta para o mês", "..."]}`;
     const def = { description: 'Estrategista', prompt: `${contextoEmpresa()}\n\n---\n\n${esp?.manual || ''}`, model: esp?.modelo || 'opus', tools: esp?.ferramentas || ['Read', 'Grep', 'Glob', 'Edit', 'Write', 'WebSearch', 'WebFetch'] };
     const r = await rodarClaudeLeitura(RAIZ_PROJETOS, cfg.conta || 'empresa', prompt, { estrategia: def }, 'estrategia', 20 * 60_000, [COFRE]);
     const j = JSON.parse(r.slice(r.indexOf('{'), r.lastIndexOf('}') + 1));
-    const notaEst = `${String(EMPRESA()).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-')}-estrategia`;
+    const notaEst = config.notaEstrategia || `${String(EMPRESA()).toLowerCase().normalize('NFKD').replace(/[^a-z0-9]+/g, '-')}-estrategia`;
     if (fs.existsSync(path.join(COFRE, '04-projetos', notaEst + '.md'))) garantirNoIndice(notaEst, `análises e decisões estratégicas da ${EMPRESA()} registradas pelo Estrategista do escritório`);
     const lista = (t, xs) => (xs || []).length ? `### ${t}\n${xs.map(x => '- ' + x).join('\n')}\n` : '';
     entregarRotina({ sessao: 'estrategia-memorandos', agente: 'Estrategista', setor: 'geral', especialidade: 'estrategia', cwd: RAIZ_PROJETOS, conta: cfg.conta || 'empresa',
@@ -1393,9 +1393,11 @@ function compilarEspecialidades() {
 }
 compilarEspecialidades();
 const especialidadeExiste = id => regrasPapel.some(e => e.id === id);
+// arquivos de bastidores (do próprio Claude, rascunhos, memória, cofre) não dizem nada sobre a especialidade do trabalho
+const ehBastidor = p => /\/\.claude[^/]*\/|^\/tmp\/claude-|\/scratchpad\/|\/node_modules\//.test(p) || (COFRE && p.startsWith(COFRE + '/'));
 function papelDoArquivo(arq) {
   const p = String(arq || '');
-  if (!p) return null;
+  if (!p || ehBastidor(p)) return null;
   return regrasPapel.find(e => e.rxArquivos?.test(p))?.id || null;
 }
 function papelDoComando(cmd) {
@@ -1621,7 +1623,9 @@ async function despachar() {
 // triagem com o Haiku: qual especialista é o certo para o pedido
 async function triar(o) {
   const lista = regrasPapel.map(e => `${e.id}: ${e.nome} — ${lerEspecialista(e.id)?.descricao || ''}`).join('\n');
-  const prompt = `Escolha o especialista MAIS adequado para executar o pedido abaixo, numa software house. Pedido do projeto "${nomeSetor(o.setor)}":\n«${o.textoCompleto.slice(0, 2500)}»\n\nEspecialistas:\n${lista}\n\nResponda APENAS com o id, sem mais nada. Se nenhum servir, responda: generalista`;
+  const pastas = (setoresComPastas().find(x => x.id === o.setor)?.pastas || [o.pasta]);
+  const stack = contextoEmpresa().split('\n').filter(l => pastas.some(p => l.includes(p) || l.includes(path.basename(p)))).join('\n').slice(0, 1500);
+  const prompt = `Escolha o especialista MAIS adequado para executar o pedido abaixo, numa software house. Pedido do projeto "${nomeSetor(o.setor)}":\n«${o.textoCompleto.slice(0, 2500)}»\n\n${stack ? `O que é o projeto e a stack dele:\n${stack}\n\n` : ''}Especialistas:\n${lista}\n\nRegras: escolha pela tecnologia ou área principal que o pedido vai mexer (ex.: tela Angular → angular; API NestJS → nestjs; app Flutter → mobile; banco/migration → banco; deploy → deploy). Use "estrategia" só para decisões de negócio da empresa inteira e "generalista" só se nenhum servir mesmo.\nResponda APENAS com o id, sem mais nada.`;
   const args = ['--wait', '--pipe', '--collect', '--quiet', '--property=WorkingDirectory=/tmp', '--property=RuntimeMaxSec=90',
     '--setenv=HOME=/root', '--setenv=ESCRITORIO_IGNORAR=1', '--setenv=PATH=' + (process.env.PATH || '/usr/local/bin:/usr/bin:/bin')];
   args.push(...envConta(o.conta));
@@ -2616,12 +2620,14 @@ async function dadosDoDepartamento(dep) {
     const repasses = [...ordens.values()].filter(o => o.repasse).map(o => `- ${o.repasse.de} → ${o.repasse.para}: ${curto(o.pedido, 100)}`).slice(0, 20).join('\n');
     return `${base}\n\nEQUIPE ATUAL:\n${linhas.join('\n')}\n\nPEDIDOS DOS ÚLTIMOS 30 DIAS QUE FICARAM SEM ESPECIALISTA (generalista):\n${semDono || '(nenhum)'}\n\nREPASSES ENTRE ESPECIALISTAS:\n${repasses || '(nenhum)'}`;
   }
+  if (dep.id === 'melhorias') return dadosDasMelhorias();
   if (dep.id === 'produto') return `${base}\n\nENTREGAS DO MÊS:\n${entregasRecentes(30)}\n\nIDEIAS ANOTADAS:\n${ideias.filter(i => i.status !== 'mandada').map(i => `- ${nomeSetor(i.setor)}: ${i.titulo} (${i.prioridade})`).join('\n') || '(nenhuma)'}\n\nMETAS:\n${metas.filter(m => m.status === 'ativa').map(m => `- ${nomeSetor(m.setor)}: ${m.titulo}${m.prazo ? ' até ' + m.prazo : ''} (${m.passos.filter(x => x.status === 'feito').length}/${m.passos.length})`).join('\n') || '(nenhuma)'}`;
   if (dep.id === 'academia' || dep.id === 'comunidade') return `${base}\n\nO QUE A EQUIPE FEZ NOS ÚLTIMOS 7 DIAS:\n${entregasRecentes(7)}`;
   if (dep.id === 'seguranca') return `${base}\n\nPasta raiz dos projetos: ${RAIZ_PROJETOS}. Faça uma auditoria só de leitura: .env versionado no git, chaves ou senhas no código, rotas de API sem autenticação, dados pessoais sem cuidado. Olhe por amostragem, priorize o que está em produção.`;
   return `${base}\n\nENTREGAS DOS ÚLTIMOS 30 DIAS:\n${entregasRecentes(30)}`;
 }
 const PEDIDOS_DEP = {
+  melhorias: 'Você é o setor de CRESCIMENTO do escritório. Proponha no MÁXIMO 2 ideias para o escritório crescer: novos setores/departamentos (com sala, especialista e rotina), novas funcionalidades, melhorias visuais no 3D e no painel, mudanças de layout ou tecnologia nova que deixe o escritório mais útil e bonito. Pense como dono de produto: o que deixaria a dona mais produtiva ou impressionada? Cada ideia precisa caber numa tarefa de algumas horas e não pode repetir as que já foram propostas, feitas ou recusadas. Varie os tipos (setor, visual, funcionalidade, tecnologia).',
   rh: 'Faça a reunião mensal de RH da equipe de especialistas. Proponha contratações SÓ se houver demanda real sem especialista (pedidos no generalista ou repasses), treinamentos para quem teve muitos "refazer" e aposentadoria para quem está parado há mais de 60 dias.',
   financeiro: 'Faça o relatório financeiro da semana: quanto cada projeto custa por mês e por quê, o que mudou, gastos fora do normal e propostas de economia (com valor estimado). Se faltar custo cadastrado (assinatura do Claude, VPS, domínios, lojas, APIs), diga exatamente o que a dona deve cadastrar.',
   marketing: 'Monte o plano de marketing da semana: para os produtos com mais chance agora, uma proposta de campanha (público, mensagem, canal) e 3 rascunhos de posts prontos para revisar. Pesquise concorrentes na web quando ajudar e cite as fontes.',
@@ -2644,11 +2650,12 @@ async function rodarDepartamento(id, origem = 'agenda') {
   try {
     const dados = await dadosDoDepartamento(dep);
     const pedidoDep = PEDIDOS_DEP[id] || `Faça o relatório do mês do departamento ${dep.nome}: o que vale fazer agora para a empresa, com base nos dados.`;
+    const extraMelhorias = id === 'melhorias' ? `,\n "melhorias": [{"titulo": "frase curta", "tipo": "setor|visual|funcionalidade|tecnologia|layout", "porque": "o ganho para a dona, em português simples", "oque": "o que construir, com arquivos e passos", "risco": "baixo|médio, e por quê", "tamanho": "pequena|média"}]` : '';
     const extraRH = id === 'rh' ? `,\n "contratacoes": [{"id": "minusculas-e-hifen", "nome": "...", "cor": "#RRGGBB", "modelo": "sonnet|opus|haiku", "ferramentas": ["Read", "..."], "descricao": "1 frase", "manual": "manual completo em Markdown, 15 a 40 linhas, no estilo: Você é o especialista em X da ${EMPRESA()}...", "arquivos": "regex ou vazio", "motivo": "por que contratar"}]` : '';
-    const prompt = `Você é o departamento ${dep.nome} da ${EMPRESA()}. ${pedidoDep}\n\nDados (coletados agora pelo escritório):\n${dados}\n\nResponda APENAS JSON: {"titulo": "frase curta", "resumo": "2 a 4 frases simples para a dona (ela não é técnica)", "itens": ["o que você achou/propõe, um por item, concreto"], "proximos": ["próximo passo sugerido"], "pergunta": "pergunta para a dona se precisar de uma decisão, senão vazio", "detalhe": "relatório completo em Markdown"${extraRH}}`;
+    const prompt = `Você é o departamento ${dep.nome} da ${EMPRESA()}. ${pedidoDep}\n\nDados (coletados agora pelo escritório):\n${dados}\n\nResponda APENAS JSON: {"titulo": "frase curta", "resumo": "2 a 4 frases simples para a dona (ela não é técnica)", "itens": ["o que você achou/propõe, um por item, concreto"], "proximos": ["próximo passo sugerido"], "pergunta": "pergunta para a dona se precisar de uma decisão, senão vazio", "detalhe": "relatório completo em Markdown"${extraRH}${extraMelhorias}}`;
     const ferramentas = dep.web ? ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'] : ['Read', 'Grep', 'Glob'];
     const def = { [dep.lider]: { description: lider.descricao || lider.nome, prompt: `${contextoEmpresa()}\n\n---\n\n${lider.manual}\n\nNesta tarefa você só lê e pesquisa: não altera nada.`, model: lider.modelo || 'sonnet', tools: ferramentas } };
-    const pasta = dep.id === 'seguranca' ? RAIZ_PROJETOS : '/tmp';
+    const pasta = dep.id === 'seguranca' ? RAIZ_PROJETOS : dep.id === 'melhorias' ? RAIZ : '/tmp';
     const txt = await rodarClaudeLeitura(pasta, config.rotinas?.departamentos?.conta || Object.keys(config.contas || { pessoal: '' })[0], prompt, def, dep.lider, 20 * 60_000);
     let j; try { j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch { throw new Error('o departamento não devolveu o relatório no formato esperado'); }
     const lista = x => (Array.isArray(x) ? x : []).slice(0, 12).map(v => censurarTexto(String(v)).slice(0, 400));
@@ -2660,6 +2667,15 @@ async function rodarDepartamento(id, origem = 'agenda') {
           ferramentas: Array.isArray(c.ferramentas) ? c.ferramentas.filter(f => FERRAMENTAS_OK.includes(f)) : ['Read', 'Grep', 'Glob'], descricao: String(c.descricao || '').slice(0, 200), manual: String(c.manual || '').slice(0, 8000), arquivos: String(c.arquivos || '').slice(0, 300) } });
       gravarPropostasRH();
     }
+    let novasMelhorias = 0;
+    if (id === 'melhorias') for (const m of (Array.isArray(j.melhorias) ? j.melhorias : []).slice(0, 2)) {
+      const titulo = censurarTexto(String(m.titulo || '')).slice(0, 140);
+      if (!titulo || propostasMelhoria.some(x => x.titulo.toLowerCase() === titulo.toLowerCase())) continue;
+      propostasMelhoria.unshift({ id: novoId(), status: 'aguardando', criada: Date.now(), titulo, tipo: ['setor', 'visual', 'funcionalidade', 'tecnologia', 'layout'].includes(m.tipo) ? m.tipo : 'funcionalidade', porque: censurarTexto(String(m.porque || '')).slice(0, 800), oque: censurarTexto(String(m.oque || '')).slice(0, 2000), risco: censurarTexto(String(m.risco || '')).slice(0, 300), tamanho: m.tamanho === 'média' ? 'média' : 'pequena' });
+      novasMelhorias++;
+    }
+    if (novasMelhorias) { gravarPropostasMelhoria(); notificar('esperando', `Crescimento do escritório: ${novasMelhorias} proposta(s) esperando a sua aprovação.`); }
+    if (id === 'melhorias' && !novasMelhorias) { e.ultima = Date.now(); e.erro = ''; return { ok: true, nada: true }; } // sem proposta: não manda relatório
     const contratacoes = id === 'rh' ? propostasRH.filter(p => p.status === 'aguardando').length : 0;
     entregarRotina({ sessao: 'dep-' + id, agente: dep.nome, setor: 'geral', especialidade: dep.lider, cwd: pasta, conta: 'empresa', pedido: `Rotina do departamento ${dep.nome}`,
       resposta: censurarTexto(String(j.detalhe || j.resumo || '')).slice(0, 12000),
@@ -2672,6 +2688,33 @@ async function rodarDepartamento(id, origem = 'agenda') {
   } catch (err) { e.erro = String(err.message || err).slice(0, 200); throw err; }
   finally { e.rodando = false; gravarRotinas(); avisar(); }
 }
+// melhorias do escritório: propostas que só viram tarefa com a aprovação da dona
+let propostasMelhoria = [];
+try { propostasMelhoria = JSON.parse(fs.readFileSync(path.join(DADOS, 'propostas-melhoria.json'), 'utf8')); } catch { propostasMelhoria = []; }
+const gravarPropostasMelhoria = () => gravarJSON(path.join(DADOS, 'propostas-melhoria.json'), propostasMelhoria.slice(0, 120));
+async function dadosDasMelhorias() {
+  const desde = Date.now() - 7 * 864e5;
+  const pedidos = relatorios.filter(r => r.setor === 'escritorio' && r.fim > desde && !r.rotina).map(r => `- ${diaDe(r.fim)}: ${curto(semQuebra(r.pedido), 220)}`).slice(0, 30).join('\n');
+  const erros = await rodar('journalctl', ['-u', 'escritorio-agentes', '--since', '-6h', '--no-pager', '-o', 'cat'], null, 15_000);
+  const linhasErro = erros.saida.split('\n').filter(l => /erro|error|falhou|exception|TypeError|ReferenceError/i.test(l)).slice(-25).map(l => '- ' + censurarTexto(l).slice(0, 220)).join('\n');
+  const historico = propostasMelhoria.slice(0, 30).map(x => `- [${x.status}] ${x.titulo}${x.motivoRecusa ? ` (recusada: ${x.motivoRecusa})` : ''}`).join('\n');
+  const incs = incidentes.filter(i => i.desde > desde).map(i => `- ${i.titulo} (${i.status})`).slice(0, 10).join('\n');
+  const tem = `SETORES QUE JÁ EXISTEM: ${deps().map(d => d.nome).join(', ')}\nSEÇÕES DO PAINEL: Geral, Atividade, Plano (metas, ideias, quadro), Projetos, Publicações, Empresa, Finanças, Equipe, Infra\nJÁ TEM: escritório 3D com salas por projeto e andar da empresa, conversas com abas, reuniões entre especialistas, convidados, busca Ctrl+K, resumo da manhã, vigia de containers e WhatsApp, histórico de publicações, clima real.`;
+  return `${tem}\n\nPEDIDOS E RECLAMAÇÕES DA DONA SOBRE O ESCRITÓRIO (7 dias):\n${pedidos || '(nenhum)'}\n\nERROS NOS REGISTROS DO ESCRITÓRIO (6 horas):\n${linhasErro || '(nenhum)'}\n\nINCIDENTES (7 dias):\n${incs || '(nenhum)'}\n\nPROPOSTAS ANTERIORES (não repita as recusadas nem as que já foram feitas):\n${historico || '(nenhuma)'}\n\nPasta do escritório: ${RAIZ} (leia o código para embasar).`;
+}
+async function decidirMelhoria(id, aprovar, motivo, ip) {
+  const pr = propostasMelhoria.find(x => x.id === id);
+  if (!pr || pr.status !== 'aguardando') return { erro: 'Essa proposta não está aguardando.' };
+  if (!aprovar) { pr.status = 'recusada'; pr.motivoRecusa = String(motivo || '').trim().slice(0, 300); pr.decidida = Date.now(); gravarPropostasMelhoria(); avisar(); return { ok: true }; }
+  const conta = config.rotinas?.departamentos?.conta || Object.keys(config.contas || { pessoal: '' })[0];
+  const r = await novaOrdem({ setor: 'escritorio', papel: 'melhorias', conta, modo: 'executar',
+    pedido: `Ideia de crescimento do escritório aprovada pela dona (${pr.tipo || 'funcionalidade'}): ${pr.titulo}\n\nPor quê: ${pr.porque}\n\nO que fazer: ${pr.oque}\n\nRisco apontado: ${pr.risco || 'baixo'}\n\nSiga o seu manual: mudança pequena, conferir, commit e registrar a publicação com escritorio-publicar.` }, ip, 'melhoria', { pedidoVisivel: `Crescimento: ${pr.titulo}` });
+  if (r.erro) return r;
+  const o = ordens.get(r.id); if (o) o.triada = true; // já vai para o engenheiro do escritório, sem triagem
+  pr.status = 'aprovada'; pr.ordem = r.id; pr.decidida = Date.now(); gravarPropostasMelhoria(); avisar();
+  return { ok: true, ordem: r.id };
+}
+
 function decidirContratacao(id, aprovar) {
   const pr = propostasRH.find(x => x.id === id);
   if (!pr || pr.status !== 'aguardando') return { erro: 'Essa proposta não está aguardando.' };
@@ -2690,6 +2733,14 @@ setInterval(() => {
   const { data, hora, dia } = agoraNoFuso(), diaMes = Number(data.slice(8, 10));
   for (const dep of deps()) {
     const r = dep.rotina, e = estadoDeps()[dep.id] ||= {};
+    if (r?.ativo && r.freq === 'horas') {
+      const [h, m] = hora.split(':').map(Number), marcaH = `${data} ${h}`;
+      if (m !== 0 || h < (r.inicio ?? 8) || h >= (r.fim ?? 20) || (h - (r.inicio ?? 8)) % (r.intervalo || 2) !== 0 || e.marca === marcaH) continue;
+      if (dep.id === 'melhorias' && propostasMelhoria.filter(x => x.status === 'aguardando').length >= (r.maxPendentes || 20)) continue; // acumula até um teto, para não gastar à toa
+      e.marca = marcaH;
+      rodarDepartamento(dep.id, 'agenda').catch(err => console.error('departamento', dep.id + ':', err.message));
+      continue;
+    }
     if (!r?.ativo || r.hora !== hora || e.marca === data) continue;
     const hoje = r.freq === 'mensal' ? diaMes === r.dia : dia === r.dia;
     if (!hoje) continue;
@@ -2772,6 +2823,23 @@ async function dadosDoPainel() {
   };
 }
 
+// recalcula a especialidade das entregas do app (sem ordem do escritório) pela lista de arquivos, sem os bastidores
+function recalcularEspecialidades() {
+  let mudou = 0;
+  for (const r of relatorios) {
+    if (r.ordem || r.rotina || !Array.isArray(r.arquivos) || !r.arquivos.length) continue;
+    const pts = {};
+    for (const a of r.arquivos) { const p = papelDoArquivo(a); if (p) pts[p] = (pts[p] || 0) + 2; }
+    const [melhor, n] = Object.entries(pts).sort((a, b) => b[1] - a[1])[0] || [];
+    const nova = n >= 3 ? melhor : 'generalista';
+    if (nova !== r.especialidade) { r.especialidade = nova; mudou++; }
+  }
+  if (mudou) gravarRelatorios();
+  return mudou;
+}
+if (!estadoRotinas.pontosZerados) { for (const sx of sessoes.values()) if (!sx.papelFixo) { sx.pontosPapel = {}; sx.especialidade = 'generalista'; } estadoRotinas.pontosZerados = Date.now(); gravarRotinas(); }
+if (!estadoRotinas.especialidadesRecalculadas) { const n = recalcularEspecialidades(); estadoRotinas.especialidadesRecalculadas = Date.now(); gravarRotinas(); console.log(`especialidades recalculadas em ${n} entrega(s)`); }
+
 // ---------- tempo real (SSE) ----------
 const ouvintes = new Set();
 function foto() {
@@ -2789,7 +2857,7 @@ function foto() {
     telegram: telegram ? { ligado: true, eventos: telegram.eventos } : { ligado: false }, minhaSala: config.minhaSala || {},
     especialidades: regrasPapel.map(({ id, nome, cor, instrucao }) => ({ id, nome, cor, instrucao, ...(infoEspecialistas[id] || {}) })),
     contas: Object.keys(config.contas || { pessoal: '' }),
-    departamentos: deps().map(d => ({ ...d, estado: estadoDeps()[d.id] || {} })), propostasRH: propostasRH.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 7 * 864e5).slice(0, 20),
+    departamentos: deps().map(d => ({ ...d, estado: estadoDeps()[d.id] || {} })), propostasMelhoria: propostasMelhoria.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 3 * 864e5).slice(0, 20), propostasRH: propostasRH.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 7 * 864e5).slice(0, 20),
     convites: convites.map(({ hash, ...c }) => ({ ...c, ativoAgora: conviteAtivo(c), projeto: nomeSetor(c.setor) })),
     reunioes: reunioes.slice(0, 8).map(({ conta, ...r }) => r),
     metas: metas.filter(m => m.status === 'ativa' || Date.now() - (m.concluida || 0) < 7 * 864e5).slice(0, 40),
@@ -3065,6 +3133,11 @@ const servidor = http.createServer(async (req, res) => {
     if (dr && req.method === 'POST') {
       const r = await Promise.race([rodarDepartamento(dr[1], 'painel').catch(e => ({ erro: e.message })), new Promise(ok => setTimeout(() => ok({ ok: true, mensagem: 'O departamento começou. O relatório chega nas Conversas em alguns minutos.' }), 1500))]);
       return json(res, r.erro ? 400 : 200, r);
+    }
+    const ml = rota.match(/^\/api\/melhorias\/([0-9a-f]{12})\/(aprovar|recusar)$/);
+    if (ml && req.method === 'POST') {
+      let d; try { d = JSON.parse(await lerCorpo(req, 4 * 1024) || '{}'); } catch { d = {}; }
+      const r = await decidirMelhoria(ml[1], ml[2] === 'aprovar', d.motivo, ipDe(req)); return json(res, r.erro ? 400 : 200, r);
     }
     const rh = rota.match(/^\/api\/rh\/([0-9a-f]{12})\/(aprovar|recusar)$/);
     if (rh && req.method === 'POST') { const r = decidirContratacao(rh[1], rh[2] === 'aprovar'); return json(res, r.erro ? 400 : 200, r); }

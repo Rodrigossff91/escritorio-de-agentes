@@ -1368,6 +1368,9 @@ function aplicar(estado) {
   const melh = (estado.aprendizado?.propostas || []).filter(x => x.status === 'aguardando').length;
   $('melhorias').hidden = !melh;
   $('melhorias').textContent = melh === 1 ? '1 melhoria para aprovar' : `${melh} melhorias para aprovar`;
+  const nc = (estado.propostasMelhoria || []).filter(p => p.status === 'aguardando').length;
+  $('ideiasCresc').hidden = !nc;
+  $('ideiasCresc').textContent = nc === 1 ? '1 ideia de crescimento' : `${nc} ideias de crescimento`;
   const pc = (estado.convites || []).reduce((n, c) => n + (c.pendentes || []).filter(p => p.status === 'aguardando').length, 0);
   $('pedConvidados').hidden = !pc;
   $('pedConvidados').textContent = pc === 1 ? '1 pedido de convidado' : `${pc} pedidos de convidado`;
@@ -2021,6 +2024,7 @@ $('bSala').onclick = () => abrirExtra('sala');
 $('bAprendizado').onclick = () => abrirExtra('aprendizado');
 $('bConvidados').onclick = () => abrirExtra('convidados');
 $('pedConvidados').onclick = () => abrirExtra('convidados');
+$('ideiasCresc').onclick = () => window.abrirPainel?.('empresa');
 let linkConvite = null;
 $('extra').addEventListener('submit', async e => {
   const f = e.target.closest('#formConvite');
@@ -2133,7 +2137,7 @@ async function abrirPapelada(id) {
   const alvo = r ? (r.sessao || r.id) : (id || relatoriosCache.find(x => !x.lido)?.sessao || relSel || conversas()[0]?.chave);
   if (alvo) verConversa(alvo);
 }
-function fecharPapelada() { papeladaAberta = false; modoLado = false; $('papelada').hidden = true; $('papelada').classList.remove('lado'); $('lateral').hidden = false; }
+function fecharPapelada() { papeladaAberta = false; modoLado = false; chatsAbertos = []; $('papelada').classList.remove('dividido'); $('papelada').hidden = true; $('papelada').classList.remove('lado'); $('lateral').hidden = false; }
 let modoLado = false, chatPendente = null;
 // clique num robô: abre a conversa com ele no painel lateral
 async function abrirChatAgente(a) {
@@ -2149,6 +2153,7 @@ async function abrirChatAgente(a) {
   selecionado = null; rackAberto = null; $('ficha').style.display = 'none';
   vista.alvoFoco.set(a.g.position.x, 0, a.g.position.z); vista.alvoZoom = Math.max(vista.alvoZoom, 2);
   modoLado = true; papeladaAberta = true; relSel = chave;
+  chatsAbertos = [...chatsAbertos.filter(k => k !== chave), chave].slice(-6);
   $('papelada').classList.add('lado'); $('papelada').hidden = false; $('lateral').hidden = true;
   if (!setoresComPasta) { try { const r = await fetch('/api/setores'); setoresComPasta = r.ok ? await r.json() : []; } catch { setoresComPasta = []; } }
   await carregarRelatorios();
@@ -2189,39 +2194,20 @@ function bolhaVoce(texto, anexos, quando, ordem) {
     ${anexos?.length && ordem ? `<div class="anexos-rel">${anexos.map(a => { const url = `/api/anexos/${esc(ordem)}/${encodeURIComponent(a.nome)}`; return /\.(png|jpe?g|gif|webp)$/i.test(a.nome) ? `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="${esc(a.nome)}"></a>` : `<a class="arq" href="${url}" target="_blank" rel="noopener">${esc(a.nome)}</a>`; }).join('')}</div>` : ''}
     </div><small>você${quando ? ' · ' + esc(horaCurta(quando)) : ''}</small></div>`;
 }
-function desenharPapelada(forcar) {
-  if (!papeladaAberta) return;
-  const nomeSala = id => salas.get(id)?.nome || 'Recepção';
-  const lista = conversas();
+// desenha UMA conversa (dá para ter várias abertas ao mesmo tempo)
+function detalheDe(chaveInicial, lista, nomeSala) {
+  let chave = chaveInicial;
   // conversa nova com especialista: vira a sessão dele assim que ele começa
-  if (chatPendente && relSel === chatPendente.chave) {
+  if (chatPendente && chave === chatPendente.chave) {
     const sx = (ultimo?.agentes || []).find(x => x.ordem === chatPendente.ordem);
-    if (sx) { relSel = sx.id; chatPendente = null; }
+    if (sx) { trocarChat(chave, sx.id); chave = sx.id; chatPendente = null; }
   }
-  const ag = (ultimo?.agentes || []).find(x => x.id === relSel);
-  let c = lista.find(x => x.chave === relSel);
+  const ag = (ultimo?.agentes || []).find(x => x.id === chave);
+  let c = lista.find(x => x.chave === chave);
   if (!c && ag) c = { chave: ag.id, agente: ag.nome, setor: ag.setor, itens: [], ultimo: { fim: Date.now() }, naoLidos: 0 };
-  const novoCom = !c && String(relSel || '').startsWith('novo:') ? String(relSel).slice(5) : null;
-  const pendentes = (ultimo?.ordens || []).filter(o => (o.sessao && o.sessao === relSel || chatPendente && o.id === chatPendente.ordem && relSel === chatPendente.chave) && (o.ativa || o.naFila));
-  const sig = [relatoriosCache.length, versaoRel, relSel,
-    (ultimo?.deploys || []).map(x => x.id + x.status).join(), (ultimo?.previas || []).map(x => x.id + x.status).join(), pendentes.map(o => o.id + o.ativa + o.triando + (o.papel || '')).join(), ag?.estado, lista.length,
-    (ag?.falas || []).map(f => f.t + f.texto.length).join(), (ag?.passos || []).length].join('|');
-  if (!forcar && sig === assinaturaChat) return;
-  assinaturaChat = sig;
-  // guarda o que está sendo digitado para não perder no redesenho
-  const velho = $('papelada').querySelector('form.responder textarea');
-  const rascunho = velho?.value || '', focado = document.activeElement === velho;
-  const estadoDe = k => (ultimo?.agentes || []).find(a => a.id === k)?.estado;
-  const filtrada = lista.filter(x => filtroConv === 'naolidas' ? x.naoLidos > 0 : filtroConv === 'esperando' ? estadoDe(x.chave) === 'esperando' : true);
-  const nEsperando = lista.filter(x => estadoDe(x.chave) === 'esperando').length, nNaoLidas = lista.filter(x => x.naoLidos > 0).length;
-  const itensLista = filtrada.length ? filtrada.map(x => {
-    const est = estadoDe(x.chave), cor = papelDe(x.ultimo?.especialidade ? x.ultimo : (ultimo?.agentes || []).find(a => a.id === x.chave)).cor;
-    return `<div class="rel${x.chave === relSel ? ' ativo' : ''}${x.naoLidos ? ' nao-lida' : ''}" data-conversa="${esc(x.chave)}">
-      ${avatarHTML(x.agente, cor, est)}
-      <div class="rel-txt"><div class="linha1"><b>${esc(x.agente)}</b><span class="proj">${esc(nomeSala(x.setor))}</span><span class="quando">${esc(tempo(Date.now() - x.ultimo.fim))}</span></div>
-        <div class="resumo">${est === 'trabalhando' ? '<em>trabalhando agora…</em>' : est === 'esperando' ? '<em class="esp">esperando sua resposta</em> · ' : ''}${esc(x.ultimo.simples?.titulo || semAnexos(x.ultimo.pedido) || 'sem descrição')}</div></div>
-      ${x.naoLidos ? `<span class="badge" aria-label="${x.naoLidos} não lidas">${x.naoLidos}</span>` : ''}
-    </div>`; }).join('') : `<div class="vazio">${lista.length ? 'Nenhuma conversa nesse filtro.' : 'Nenhuma conversa ainda. Quando um agente terminar uma tarefa, ele traz aqui.'}</div>`;
+  const novoCom = !c && String(chave || '').startsWith('novo:') ? String(chave).slice(5) : null;
+  const pendentes = (ultimo?.ordens || []).filter(o => (o.sessao && o.sessao === chave || chatPendente && o.id === chatPendente.ordem && chave === chatPendente.chave) && (o.ativa || o.naFila));
+  const sig = [chave, pendentes.map(o => o.id + o.ativa + o.triando + (o.papel || '')).join(), ag?.estado, (ag?.falas || []).map(f => f.t + f.texto.length).join(), (ag?.passos || []).length].join('|');
   let detalhe = '<div class="vazio">Escolha uma conversa na lista.</div>';
   if (novoCom) {
     const po = novoCom.startsWith('po:') ? novoCom.slice(3) : null, papel = po ? 'po' : novoCom;
@@ -2230,9 +2216,9 @@ function desenharPapelada(forcar) {
     const setorFixo = po || (papel === 'estrategia' ? 'geral' : null);
     const espera = pendentes.map(o => bolhaVoce(o.pedido, o.anexos, o.criada, o.id) +
       `<div class="msg agente"><div class="bolha digitando">${o.triando ? 'escolhendo o especialista certo' : o.naFila ? 'na fila, já já começa' : `${esc(av?.nome || pp.nome)} está começando`}<span class="pontos"><i></i><i></i><i></i></span></div></div>`).join('');
-    detalhe = `<div class="chat-topo">${avatarHTML(av?.nome || pp.nome, po ? '#534AB7' : pp.cor)}<div class="ct-txt"><b>${esc(av?.nome || pp.nome)}</b><small>${esc(po ? 'PO · ' + nomeSetor(po) : pp.nome)}${info.modelo ? ' · ' + esc(info.modelo) : ''}</small></div>${fecharChatHTML()}</div>
-      <div class="chat" id="chatMsgs">${pendentes.length ? espera : `<div class="msg agente"><div class="bolha">Oi! Sou ${esc(av?.nome || '')}, ${esc(po ? 'PO do ' + nomeSetor(po) : pp.nome)}. ${esc(info.descricao || '')}<br><br>Me diga o que precisa. Use <b>Conversar</b> para a gente combinar sem mexer em nada, ou <b>Executar</b> para eu já fazer.</div></div>`}</div>
-      ${pendentes.length ? '' : `<form class="responder novo" data-papel="${esc(papel)}">
+    detalhe = `<div class="chat-topo">${avatarHTML(av?.nome || pp.nome, po ? '#534AB7' : pp.cor)}<div class="ct-txt"><b>${esc(av?.nome || pp.nome)}</b><small>${esc(po ? 'PO · ' + nomeSetor(po) : pp.nome)}${info.modelo ? ' · ' + esc(info.modelo) : ''}</small></div>${fecharChatHTML(chave)}</div>
+      <div class="chat">${pendentes.length ? espera : `<div class="msg agente"><div class="bolha">Oi! Sou ${esc(av?.nome || '')}, ${esc(po ? 'PO do ' + nomeSetor(po) : pp.nome)}. ${esc(info.descricao || '')}<br><br>Me diga o que precisa. Use <b>Conversar</b> para a gente combinar sem mexer em nada, ou <b>Executar</b> para eu já fazer.</div></div>`}</div>
+      ${pendentes.length ? '' : `<form class="responder novo" data-papel="${esc(papel)}" data-chave="${esc(chave)}">
         ${setorFixo ? `<input type="hidden" name="setor" value="${esc(setorFixo)}">` : `<label class="campo-setor">Projeto<select name="setor">${(setoresComPasta || []).map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select></label>`}
         <textarea name="pedido" rows="1" maxlength="6000" placeholder="Escreva para ${esc(av?.nome || pp.nome)}…"></textarea>
         <div class="erro" role="alert"></div>
@@ -2260,8 +2246,8 @@ function desenharPapelada(forcar) {
     const doApp = ag && !ag.ordem;
     const papelC = papelDe(c.itens.at(-1) || ag);
     detalhe = `<div class="chat-topo">${avatarHTML(c.agente, papelC.cor, ag?.estado)}<div class="ct-txt"><b>${esc(c.agente)}</b><small>${esc(papelC.nome)} · ${esc(nomeSala(c.setor))}</small></div>
-      ${ag ? `<span class="estado-pill ${esc(ag.estado)}">${esc(rotuloEstado[ag.estado] || '')}</span>` : '<span class="estado-pill saiu">foi embora</span>'}${fecharChatHTML()}</div>
-      <div class="chat" id="chatMsgs">${msgs}${cartoesDaConversa(c.chave)}${espera}${aoVivoHTML}</div>
+      ${ag ? `<span class="estado-pill ${esc(ag.estado)}">${esc(rotuloEstado[ag.estado] || '')}</span>` : '<span class="estado-pill saiu">foi embora</span>'}${fecharChatHTML(chave)}</div>
+      <div class="chat">${msgs}${cartoesDaConversa(c.chave)}${espera}${aoVivoHTML}</div>
       ${podeResponder ? `<form class="responder" data-sessao="${esc(c.chave)}">
         <textarea name="pedido" rows="1" maxlength="6000" placeholder="Escreva para ${esc(c.agente)}…"></textarea>
         <div class="erro" role="alert"></div>
@@ -2277,8 +2263,42 @@ function desenharPapelada(forcar) {
       </form>` : !ag ? '<p class="nota-rel">Esse agente já foi embora do escritório, então a conversa ficou só para leitura.</p>'
         : ocupado && !pendentes.length ? `<p class="nota-rel">${esc(c.agente)} está trabalhando no app do Claude agora. Você acompanha por aqui; para interromper, use o app.</p>` : ''}`;
   }
+  return { chave, sig, html: detalhe };
+}
+function desenharPapelada(forcar) {
+  if (!papeladaAberta) return;
+  const nomeSala = id => salas.get(id)?.nome || 'Recepção';
+  const lista = conversas();
+  // quais conversas aparecem: no chat do lado, a ativa (e a anterior, se estiver lado a lado)
+  if (modoLado && relSel && !chatsAbertos.includes(relSel)) chatsAbertos.push(relSel);
+  const visiveis = modoLado && chatsLadoALado && chatsAbertos.length > 1 ? [chatsAbertos.filter(k => k !== relSel).at(-1), relSel] : [relSel];
+  const partes = visiveis.filter(Boolean).map(k => detalheDe(k, lista, nomeSala));
+  const sig = [relatoriosCache.length, versaoRel, relSel, modoLado, chatsAbertos.join(), chatsLadoALado, lista.length, filtroConv,
+    (ultimo?.deploys || []).map(x => x.id + x.status).join(), (ultimo?.previas || []).map(x => x.id + x.status).join(), ...partes.map(x => x.sig)].join('|');
+  if (!forcar && sig === assinaturaChat) return;
+  assinaturaChat = sig;
+  // guarda o que está sendo digitado para não perder no redesenho
+  const chaveForm = f => f.dataset.sessao || (f.dataset.ordem ? 'ordem:' + f.dataset.ordem : f.dataset.chave || 'novo');
+  const rascunhos = {}; let focado = null;
+  for (const f of $('papelada').querySelectorAll('form.responder')) { const t = f.querySelector('textarea'); if (!t) continue; rascunhos[chaveForm(f)] = t.value; if (document.activeElement === t) focado = chaveForm(f); }
+  const estadoDe = k => (ultimo?.agentes || []).find(a => a.id === k)?.estado;
+  const filtrada = lista.filter(x => filtroConv === 'naolidas' ? x.naoLidos > 0 : filtroConv === 'esperando' ? estadoDe(x.chave) === 'esperando' : true);
+  const nEsperando = lista.filter(x => estadoDe(x.chave) === 'esperando').length, nNaoLidas = lista.filter(x => x.naoLidos > 0).length;
+  const itensLista = filtrada.length ? filtrada.map(x => {
+    const est = estadoDe(x.chave), cor = papelDe(x.ultimo?.especialidade ? x.ultimo : (ultimo?.agentes || []).find(a => a.id === x.chave)).cor;
+    return `<div class="rel${x.chave === relSel ? ' ativo' : ''}${x.naoLidos ? ' nao-lida' : ''}" data-conversa="${esc(x.chave)}">
+      ${avatarHTML(x.agente, cor, est)}
+      <div class="rel-txt"><div class="linha1"><b>${esc(x.agente)}</b><span class="proj">${esc(nomeSala(x.setor))}</span><span class="quando">${esc(tempo(Date.now() - x.ultimo.fim))}</span></div>
+        <div class="resumo">${est === 'trabalhando' ? '<em>trabalhando agora…</em>' : est === 'esperando' ? '<em class="esp">esperando sua resposta</em> · ' : ''}${esc(x.ultimo.simples?.titulo || semAnexos(x.ultimo.pedido) || 'sem descrição')}</div></div>
+      ${x.naoLidos ? `<span class="badge" aria-label="${x.naoLidos} não lidas">${x.naoLidos}</span>` : ''}
+    </div>`; }).join('') : `<div class="vazio">${lista.length ? 'Nenhuma conversa nesse filtro.' : 'Nenhuma conversa ainda. Quando um agente terminar uma tarefa, ele traz aqui.'}</div>`;
+  const detalhe = partes[0]?.html || '<div class="vazio">Escolha uma conversa na lista.</div>';
+  $('papelada').classList.toggle('dividido', modoLado && partes.length > 1);
   $('papelada').innerHTML = modoLado
-    ? `<header class="topo-lado"><button data-acao="ver-lista" title="Ver todas as conversas">← Todas as conversas</button></header><div class="detalhe chat-detalhe">${detalhe}</div>`
+    ? `<header class="topo-lado"><div class="abas-chat" role="tablist">${chatsAbertos.map(k => abaDoChat(k, lista)).join('')}</div>
+        ${chatsAbertos.length > 1 ? `<button class="lado-a-lado${chatsLadoALado ? ' ativo' : ''}" data-acao="lado-a-lado" title="Ver duas conversas lado a lado" aria-pressed="${chatsLadoALado}">Lado a lado</button>` : ''}
+        <button class="ver-todas" data-acao="ver-lista" title="Ver todas as conversas">Todas</button></header>
+      <div class="chats-lado">${partes.map(x => `<div class="detalhe chat-detalhe${x.chave === relSel ? ' ativa' : ''}" data-chave="${esc(x.chave)}">${x.html}</div>`).join('')}</div>`
     : `<aside class="coluna-conv"><header class="topo-conv"><div class="tc-linha"><h2>Conversas</h2>
         <select id="novaConversa" aria-label="Começar conversa nova"><option value="">+ Nova conversa</option>${(ultimo?.especialidades || []).map(e => `<option value="${esc(e.id)}">${esc(avatares.get('fixo:' + e.id)?.nome || e.nome)} · ${esc(e.nome)}</option>`).join('')}</select></div>
         <input type="search" id="buscaConversas" placeholder="Buscar nas conversas" aria-label="Buscar nas conversas">
@@ -2289,15 +2309,24 @@ function desenharPapelada(forcar) {
   if (cb) { cb.value = buscaQ; if (buscaFocada) { cb.focus(); cb.setSelectionRange(buscaQ.length, buscaQ.length); } }
   const selConta = $('papelada').querySelector('form.responder.novo select[name="conta"]');
   if (selConta) { try { selConta.value = localStorage.getItem('escritorio-conta') || 'pessoal'; } catch { /* ignora */ } }
-  const novo = $('papelada').querySelector('form.responder textarea');
-  if (novo) { novo.value = rascunho; if (focado) novo.focus(); }
-  const ch = $('chatMsgs');
-  if (ch) ch.scrollTop = ch.scrollHeight;
+  for (const f of $('papelada').querySelectorAll('form.responder')) { const t = f.querySelector('textarea'); if (!t) continue; const k = chaveForm(f); if (rascunhos[k]) t.value = rascunhos[k]; if (focado === k) t.focus(); }
+  $('papelada').querySelectorAll('.chat').forEach(ch => { ch.scrollTop = ch.scrollHeight; });
   $('papelada').querySelectorAll('form.responder textarea').forEach(crescer);
+}
+// várias conversas abertas: abas no topo do chat do lado
+let chatsAbertos = [], chatsLadoALado = false;
+try { chatsLadoALado = localStorage.getItem('chat-lado-a-lado') === '1'; } catch { /* ignora */ }
+function trocarChat(de, para) { chatsAbertos = chatsAbertos.map(k => k === de ? para : k).filter((k, i, a) => a.indexOf(k) === i); if (relSel === de) relSel = para; }
+function abaDoChat(k, lista) {
+  const c = lista.find(x => x.chave === k), ag = (ultimo?.agentes || []).find(x => x.id === k);
+  let nome = c?.agente || ag?.nome, cor = papelDe(c?.ultimo?.especialidade ? c.ultimo : ag).cor;
+  if (!nome && String(k).startsWith('novo:')) { const id = String(k).slice(5); const av = avatares.get(id.startsWith('po:') ? id : 'fixo:' + id); nome = av?.nome || papelDe({ especialidade: id }).nome; cor = papelDe({ especialidade: id.startsWith('po:') ? 'po' : id }).cor; }
+  const naoLidos = c?.naoLidos || 0;
+  return `<span class="aba-chat${k === relSel ? ' ativa' : ''}" role="tab" aria-selected="${k === relSel}"><button data-aba-chat="${esc(k)}">${avatarHTML(nome || '?', cor, ag?.estado)}<span>${esc(nome || 'Conversa')}</span>${naoLidos && k !== relSel ? `<i class="badge">${naoLidos}</i>` : ''}</button><button class="x" data-fechar-aba="${esc(k)}" aria-label="Fechar conversa com ${esc(nome || '')}">×</button></span>`;
 }
 // a caixa de texto cresce conforme a pessoa escreve
 function crescer(t) { t.style.height = 'auto'; t.style.height = Math.min(t.scrollHeight, 220) + 'px'; }
-const fecharChatHTML = () => '<button class="fechar-chat" data-acao="fechar" aria-label="Fechar">×</button>';
+const fecharChatHTML = chave => modoLado && chave ? `<button class="fechar-chat" data-fechar-aba="${esc(chave)}" aria-label="Fechar esta conversa">×</button>` : '<button class="fechar-chat" data-acao="fechar" aria-label="Fechar">×</button>';
 
 // cartões de prévia e de publicação dentro da conversa do agente
 function cartoesDaConversa(chave) {
@@ -2417,7 +2446,7 @@ $('papelada').addEventListener('submit', async e => {
     const j = await r.json().catch(() => ({}));
     if (!r.ok) { erro.textContent = j.erro || 'Não deu para mandar.'; fn.querySelectorAll('button').forEach(b => { b.disabled = false; }); return; }
     try { localStorage.setItem('escritorio-conta', fn.conta.value); } catch { /* ignora */ }
-    chatPendente = { ordem: j.id, chave: relSel };
+    chatPendente = { ordem: j.id, chave: fn.dataset.chave || relSel };
     desenharPapelada(true);
     return;
   }
@@ -2485,6 +2514,18 @@ $('papelada').addEventListener('input', e => {
   } const er = e.target.closest('form.responder')?.querySelector('.erro'); if (er) er.textContent = ''; });
 $('papelada').classList.add('moderna');
 $('papelada').addEventListener('click', async e => {
+  const aba = e.target.closest('[data-aba-chat]');
+  if (aba) { relSel = aba.dataset.abaChat; for (const r of relatoriosCache) if ((r.sessao || r.id) === relSel && !r.lido) { r.lido = true; postar(`/api/relatorios/${r.id}/lido`); } desenharPapelada(true); return; }
+  const fa = e.target.closest('[data-fechar-aba]');
+  if (fa) {
+    chatsAbertos = chatsAbertos.filter(k => k !== fa.dataset.fecharAba);
+    if (!chatsAbertos.length) return fecharPapelada();
+    if (relSel === fa.dataset.fecharAba) relSel = chatsAbertos.at(-1);
+    desenharPapelada(true); return;
+  }
+  if (e.target.closest('[data-acao="lado-a-lado"]')) { chatsLadoALado = !chatsLadoALado; try { localStorage.setItem('chat-lado-a-lado', chatsLadoALado ? '1' : '0'); } catch { /* ignora */ } desenharPapelada(true); return; }
+  const painelChat = e.target.closest('.chats-lado .chat-detalhe');
+  if (painelChat && painelChat.dataset.chave !== relSel && !e.target.closest('button, a, textarea, input, select, summary')) { relSel = painelChat.dataset.chave; desenharPapelada(true); }
   const pub = e.target.closest('[data-publicar]');
   if (pub) {
     if (!confirm('Publicar em produção? O DevOps vai conferir tudo antes e só publica se estiver certo.')) return;

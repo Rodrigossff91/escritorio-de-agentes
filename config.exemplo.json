@@ -110,7 +110,7 @@
       "nome": "IA e agentes",
       "cor": "#7F77DD",
       "instrucao": "Atue como especialista em IA: integrações com Anthropic, OpenAI e Gemini, prompts, agentes, ferramentas, custos de tokens e avaliação de respostas.",
-      "arquivos": "anthropic|openai|gemini|vertex|claude|\\bllm|prompts?|embedding|/agents?/|/ia/|/ai/|tutor|luna"
+      "arquivos": "anthropic|openai|gemini|vertex|\\bllm|/prompts?/|embedding|/agents?/|/ia/|/ai/|tutor|luna"
     },
     {
       "id": "mobile",
@@ -307,6 +307,12 @@
       "nome": "Comunidade e conteúdo técnico",
       "cor": "#D4537E",
       "instrucao": "Atue como DevRel: posts técnicos, README e guias do repositório público, sem expor dados privados."
+    },
+    {
+      "id": "melhorias",
+      "nome": "Crescimento do escritório",
+      "cor": "#0F6E56",
+      "instrucao": "Atue como engenheiro do próprio escritório de agentes: melhorias pequenas e seguras, sempre aprovadas pela dona."
     }
   ],
   "origensPermitidas": [],
@@ -396,6 +402,28 @@
   "pastasBackup": [],
   "backupEscritorio": "",
   "departamentos": [
+    {
+      "id": "melhorias",
+      "nome": "Crescimento do escritório",
+      "cor": "#0F6E56",
+      "membros": [
+        "melhorias"
+      ],
+      "lider": "melhorias",
+      "responsabilidades": [
+        "A cada 2 horas (8h às 20h) propõe até 2 melhorias pequenas para o escritório",
+        "As propostas vão acumulando para você aprovar; só é feito o que você aprovar, e entrar no ar continua sendo o seu botão Publicar",
+        "Aprende com as propostas que você recusa"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "horas",
+        "intervalo": 2,
+        "inicio": 0,
+        "fim": 24,
+        "maxPendentes": 20
+      }
+    },
     {
       "id": "rh",
       "nome": "RH",

@@ -855,3 +855,77 @@ details.meta.concluida{opacity:.75}
 .novo-custo .principal-g{border:0;border-radius:99px;padding:7px 14px;background:var(--destaque);color:#fff;font-weight:600;font-size:13px;justify-self:start}
 .mini-x{border:0;background:none;color:var(--tinta-2);font-size:11.5px;padding:0 4px;text-decoration:underline}
 .mini-x.confirmar{color:var(--ruim);font-weight:600}
+/* chat do lado com várias conversas (abas) e lado a lado */
+.papelada.moderna.lado.dividido{width:min(1080px,calc(100% - 24px))}
+.papelada.moderna .topo-lado{display:flex;align-items:center;gap:8px;padding:10px 12px 8px;border-bottom:1px solid var(--vidro-borda)}
+.abas-chat{display:flex;gap:4px;overflow-x:auto;flex:1;min-width:0;scrollbar-width:none}
+.abas-chat::-webkit-scrollbar{display:none}
+.aba-chat{display:inline-flex;align-items:center;border-radius:12px;background:var(--superficie-2);flex:none;max-width:190px}
+.aba-chat.ativa{background:var(--superficie);box-shadow:var(--sombra);outline:1px solid var(--vidro-borda)}
+.aba-chat button{border:0;background:none;padding:4px 6px;display:inline-flex;align-items:center;gap:6px;font-size:12.5px;color:var(--tinta);min-width:0}
+.aba-chat button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.aba-chat .av{width:22px!important;height:22px!important;font-size:11px!important}
+.aba-chat .av .st{width:8px!important;height:8px!important}
+.aba-chat .badge{min-width:16px;height:16px;font-size:10px;font-style:normal}
+.aba-chat .x{padding:4px 8px 4px 2px;color:var(--tinta-2);font-size:15px}
+.aba-chat .x:hover{color:var(--tinta)}
+.topo-lado .lado-a-lado,.topo-lado .ver-todas{border:0;border-radius:99px;padding:5px 11px;font-size:12px;background:var(--superficie-2);color:var(--tinta-2);flex:none}
+.topo-lado .lado-a-lado.ativo{background:var(--tinta);color:var(--superficie)}
+.chats-lado{display:grid;grid-template-columns:minmax(0,1fr);min-height:0}
+.papelada.moderna.dividido .chats-lado{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+.papelada.moderna.dividido .chat-detalhe{border-right:1px solid var(--vidro-borda);opacity:.92}
+.papelada.moderna.dividido .chat-detalhe:last-child{border-right:0}
+.papelada.moderna.dividido .chat-detalhe.ativa{opacity:1}
+.papelada.moderna.dividido .msg{max-width:94%}
+.papelada.moderna.dividido .chat{padding:16px 14px}
+.papelada.moderna.dividido form.responder,.papelada.moderna.dividido .nota-rel,.papelada.moderna.dividido .dica-app{margin-left:10px;margin-right:10px}
+.papelada.moderna.dividido .dica-modo{display:none}
+@media (max-width:900px){.papelada.moderna.dividido .chats-lado{grid-template-columns:minmax(0,1fr)}.papelada.moderna.dividido .chat-detalhe:not(.ativa){display:none}}
+/* ---------- painel moderno: trilho de ícones, modo ampliado, indicadores ---------- */
+.gaveta-meio{display:grid;grid-template-columns:auto minmax(0,1fr);min-height:0}
+.trilho{display:flex;flex-direction:column;gap:2px;padding:10px 6px;border-right:1px solid var(--vidro-borda);overflow-y:auto;scrollbar-width:none;background:color-mix(in srgb,var(--superficie-2) 55%,transparent)}
+.trilho::-webkit-scrollbar{display:none}
+.trilho hr{border:0;border-top:1px solid var(--vidro-borda);margin:6px 8px}
+.trilho button{display:flex;flex-direction:column;align-items:center;gap:3px;border:0;background:none;border-radius:12px;padding:8px 6px;color:var(--tinta-2);font-size:10.5px;font-weight:600;letter-spacing:.01em;width:64px;transition:background .18s,color .18s}
+.trilho button svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.trilho button:hover{color:var(--tinta);background:var(--superficie-2)}
+.trilho button.ativa{color:var(--destaque);background:var(--superficie);box-shadow:var(--sombra)}
+.trilho button:focus-visible{outline:2px solid var(--destaque);outline-offset:-2px}
+.ampliar-gaveta{border:0;background:var(--superficie-2);width:30px;height:30px;border-radius:50%;padding:0;font-size:15px;color:var(--tinta-2);display:grid;place-items:center}
+.ampliar-gaveta:hover{color:var(--tinta)}
+.gaveta.larga{--largura:min(1180px,calc(100vw - 40px))}
+.gaveta.larga .gaveta-conteudo{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start;align-content:start}
+.gaveta.larga .gaveta-conteudo>.largo,.gaveta.larga .gaveta-conteudo>.esqueleto{grid-column:1/-1}
+.gaveta.larga .kpis{grid-template-columns:repeat(6,minmax(0,1fr))}
+.gaveta.larga .equipe-g{grid-template-columns:repeat(auto-fill,minmax(320px,1fr))}
+.gaveta.larga .ampliar-gaveta{background:var(--tinta);color:var(--superficie)}
+.gaveta-conteudo.entrando>*{animation:entrar .22s cubic-bezier(.32,.72,0,1) both}
+.gaveta-conteudo.entrando>*:nth-child(2){animation-delay:.03s}.gaveta-conteudo.entrando>*:nth-child(3){animation-delay:.06s}.gaveta-conteudo.entrando>*:nth-child(4){animation-delay:.09s}
+@keyframes entrar{from{opacity:0;transform:translateY(8px)}}
+.esqueleto{display:flex;flex-direction:column;gap:12px}
+.esqueleto i{display:block;height:84px;border-radius:16px;background:linear-gradient(90deg,var(--superficie-2) 0%,var(--superficie) 50%,var(--superficie-2) 100%);background-size:200% 100%;animation:brilho 1.2s linear infinite}
+.esqueleto i:nth-child(2){height:180px}.esqueleto i:nth-child(3){height:120px}
+@keyframes brilho{to{background-position:-200% 0}}
+.kpi .delta{font-style:normal;font-size:11px;font-weight:600;color:var(--tinta-2);margin-top:2px}
+.kpi .delta.sobe{color:var(--bom)}.kpi .delta.desce{color:var(--ruim)}
+.kpi .mini-linha{width:100%;height:22px;margin-top:4px}
+.kpi .mini-linha path{fill:none;stroke:var(--bom);stroke-width:2;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+@media (max-width:560px){.trilho button{width:52px;font-size:9.5px;padding:7px 4px}.trilho button svg{width:19px;height:19px}}
+@media (prefers-reduced-motion:reduce){.gaveta-conteudo.entrando>*{animation:none}.esqueleto i{animation:none}}
+/* crescimento do escritório: ideias para aprovar */
+.ideias-cresc{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+.cresc{background:var(--superficie);border:1px solid var(--vidro-borda);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:6px;font-size:13px}
+.cresc-topo{display:flex;gap:6px;align-items:center}.cresc-topo small{margin-left:auto;color:var(--tinta-2);font-size:11.5px}
+.cresc b{font-size:14px;font-weight:650}.cresc p{margin:0;color:var(--tinta-2)}
+.cresc .como{color:var(--tinta);font-size:12.5px;white-space:pre-wrap;margin-top:6px}
+.cresc details summary{cursor:pointer;font-size:12.5px;color:var(--destaque)}
+.chip.tipo-setor{background:color-mix(in srgb,#534AB7 16%,transparent);color:#534AB7}
+.chip.tipo-visual{background:color-mix(in srgb,#D4537E 16%,transparent);color:#B83B66}
+.chip.tipo-funcionalidade{background:color-mix(in srgb,var(--bom) 14%,transparent);color:var(--bom)}
+.chip.tipo-tecnologia{background:color-mix(in srgb,var(--info) 14%,transparent);color:var(--info)}
+.chip.tipo-layout{background:color-mix(in srgb,var(--aviso) 16%,transparent);color:var(--aviso)}
+.decidir-cresc{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;margin-top:4px}
+.decidir-cresc input{font:inherit;font-size:12.5px;color:var(--tinta);background:var(--superficie-2);border:1px solid transparent;border-radius:8px;padding:6px 8px;min-width:0}
+.decidir-cresc button{border:0;border-radius:99px;padding:5px 12px;font-size:12px;background:var(--superficie-2)}
+.decidir-cresc .principal-g{background:var(--destaque);color:#fff;font-weight:600}
+@media (max-width:560px){.decidir-cresc{grid-template-columns:1fr 1fr}.decidir-cresc input{grid-column:1/-1}}

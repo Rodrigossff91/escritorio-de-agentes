@@ -9,18 +9,8 @@
     <div class="gaveta-corpo">
       <header class="gaveta-topo">
         <div class="gaveta-titulo"><h2>Painel</h2><span class="ao-vivo" id="aoVivoG">ao vivo</span>
+          <button class="ampliar-gaveta" data-acao="ampliar-gaveta" title="Ampliar o painel" aria-label="Ampliar o painel">⤢</button>
           <button class="fechar-gaveta" data-acao="fechar-gaveta" aria-label="Fechar painel">×</button></div>
-        <nav class="abas" role="tablist">
-          <button role="tab" data-aba="geral">Geral</button>
-          <button role="tab" data-aba="plano">Plano</button>
-          <button role="tab" data-aba="projetos">Projetos</button>
-          <button role="tab" data-aba="empresa">Empresa</button>
-          <button role="tab" data-aba="financeiro">Financeiro</button>
-          <button role="tab" data-aba="publicacoes">Publicações</button>
-          <button role="tab" data-aba="equipe">Equipe</button>
-          <button role="tab" data-aba="infra">Infra</button>
-          <button role="tab" data-aba="atividade">Atividade</button>
-        </nav>
         <form class="pedido-rapido" id="pedidoRapido" autocomplete="off">
           <select id="prSetor" aria-label="Projeto"></select>
           <input id="prTexto" maxlength="4000" placeholder="Peça algo para a equipe ou anote uma ideia…" aria-label="Pedido">
@@ -28,9 +18,24 @@
           <button type="submit" name="acao" value="mandar" class="pr-mandar">Mandar</button>
         </form>
       </header>
-      <div class="gaveta-conteudo" id="gavetaConteudo"></div>
+      <div class="gaveta-meio"><nav class="trilho" role="tablist" aria-label="Seções do painel" id="trilho"></nav><div class="gaveta-conteudo" id="gavetaConteudo"></div></div>
     </div>`;
   document.querySelector('.palco').appendChild(el);
+  // ícones de traço simples (24x24)
+  const ICONES = {
+    geral: '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+    plano: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18M8 15l2.5 2.5L16 13"/>',
+    projetos: '<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>',
+    empresa: '<path d="M4 21V5a1 1 0 0 1 1-1h9a1 1 0 0 1 1 1v16M15 9h4a1 1 0 0 1 1 1v11M3 21h18M8 8h3M8 12h3M8 16h3"/>',
+    financeiro: '<circle cx="12" cy="12" r="9"/><path d="M15 9.5c-.6-1-1.7-1.5-3-1.5-1.7 0-3 .9-3 2.2 0 3 6 1.6 6 4.6 0 1.3-1.3 2.2-3 2.2-1.4 0-2.6-.6-3.1-1.6M12 6v2M12 16v2"/>',
+    publicacoes: '<path d="M12 15V3M7 8l5-5 5 5M5 15v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
+    equipe: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.5c2.4.2 4 1.8 4.5 4.5"/>',
+    infra: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/>',
+    atividade: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+  };
+  const SECOES = [['geral', 'Geral'], ['atividade', 'Atividade'], null, ['plano', 'Plano'], ['projetos', 'Projetos'], ['publicacoes', 'Publicar'], null, ['empresa', 'Empresa'], ['financeiro', 'Finanças'], ['equipe', 'Equipe'], null, ['infra', 'Infra']];
+  el.querySelector('#trilho').innerHTML = SECOES.map(x => x ? `<button role="tab" data-aba="${x[0]}" title="${x[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONES[x[0]]}</svg><span>${x[1]}</span></button>` : '<hr>').join('');
+  try { if (localStorage.getItem('painel-largo') === '1') el.classList.add('larga'); } catch { /* ignora */ }
 
   let aberta = false, aba = 'geral', dados = null, buscando = false, filtroEquipe = '', filtroAtiv = 'tudo';
   let pubs = null, filtroPub = 'todos', buscandoPub = false, fin = null, buscandoFin = false;
@@ -91,8 +96,9 @@
 
   el.addEventListener('click', e => {
     const t = e.target.closest('[data-aba]');
-    if (t) { aba = t.dataset.aba; try { localStorage.setItem('painel-aba', aba); } catch { /* ignora */ } if (aba === 'publicacoes') buscarPub(); desenhar(); conteudo.scrollTop = 0; return; }
+    if (t) { aba = t.dataset.aba; try { localStorage.setItem('painel-aba', aba); } catch { /* ignora */ } if (aba === 'publicacoes') buscarPub(); desenhar(); conteudo.scrollTop = 0; conteudo.classList.remove('entrando'); void conteudo.offsetWidth; conteudo.classList.add('entrando'); return; }
     if (e.target.closest('[data-acao="fechar-gaveta"]')) return abrir(false);
+    if (e.target.closest('[data-acao="ampliar-gaveta"]')) { el.classList.toggle('larga'); try { localStorage.setItem('painel-largo', el.classList.contains('larga') ? '1' : '0'); } catch { /* ignora */ } return; }
     const conv = e.target.closest('[data-conversar]');
     if (conv) { const a = avatares.get('fixo:' + conv.dataset.conversar); if (a) { abrir(false); abrirChatAgente(a); } return; }
     const ag = e.target.closest('[data-agente]');
@@ -156,6 +162,16 @@
       if (!r.ok) return aviso(j.erro || 'Não deu para criar a meta.', null, [330]);
       ['meta:titulo', 'meta:prazo', 'meta:passos'].forEach(k => delete rascunhos[k]);
       detAbertos.delete('nova-meta'); aviso('Meta criada.', null, [523, 784]);
+      return;
+    }
+    if (f.matches('form.decidir-cresc')) {
+      e.preventDefault();
+      const aprovar = e.submitter?.value === 'aprovar';
+      f.querySelectorAll('button').forEach(x => { x.disabled = true; });
+      const r = await postar(`/api/melhorias/${f.dataset.id}/${aprovar ? 'aprovar' : 'recusar'}`, { motivo: f.motivo.value }), j = await r.json().catch(() => ({}));
+      if (!r.ok) { f.querySelectorAll('button').forEach(x => { x.disabled = false; }); return aviso(j.erro || 'Não deu.', null, [330]); }
+      delete rascunhos['cresc:' + f.dataset.id];
+      aviso(aprovar ? 'Aprovado! O setor de Crescimento começou a construir. Quando terminar, aparece para você Publicar.' : 'Recusada. O setor vai levar isso em conta nas próximas ideias.', null, aprovar ? [523, 659, 784] : [330]);
       return;
     }
     if (f.matches('form.novo-custo')) {
@@ -243,11 +259,12 @@
     if (acao === 'mandar') aviso('Ideia mandada para a equipe. Acompanhe em Fazendo.', null, [523, 659, 784]);
   });
   const PRIOS = ['alta', 'media', 'baixa'];
-  el.querySelectorAll('.abas').forEach(n => n.addEventListener('keydown', ev => {
-    if (!['ArrowLeft', 'ArrowRight'].includes(ev.key)) return;
+  el.querySelectorAll('.trilho').forEach(n => n.addEventListener('keydown', ev => {
+    if (!['ArrowUp', 'ArrowDown'].includes(ev.key)) return;
+    ev.preventDefault();
     const bs = [...n.querySelectorAll('button')], i = bs.indexOf(document.activeElement);
     if (i < 0) return;
-    const prox = bs[(i + (ev.key === 'ArrowRight' ? 1 : bs.length - 1)) % bs.length];
+    const prox = bs[(i + (ev.key === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length];
     prox.focus(); prox.click();
   }));
   el.addEventListener('input', e => {
@@ -352,8 +369,10 @@
       ${limite ? `<line x1="0" x2="${W}" y1="${y(limite)}" y2="${y(limite)}" class="grade limite"/>` : ''}
       <path d="${d}L${W},${H}L0,${H}Z" class="area"/><path d="${d}" class="linha"/></svg>`;
   }
-  const carregando = () => `<p class="vazio-g">Carregando…</p>`;
-  const kpi = (valor, rotulo, tom, acao) => `<div class="kpi ${tom || ''}" ${acao || ''}><b>${valor}</b><span>${rotulo}</span></div>`;
+  const carregando = () => `<div class="esqueleto" aria-label="Carregando"><i></i><i></i><i></i></div>`;
+  const kpi = (valor, rotulo, tom, acao, extra) => `<div class="kpi ${tom || ''}" ${acao || ''}><b>${valor}</b><span>${rotulo}</span>${extra || ''}</div>`;
+  const delta = (agora, antes, rot) => { if (antes == null) return ''; const d = agora - antes; return `<em class="delta ${d > 0 ? 'sobe' : d < 0 ? 'desce' : ''}">${d > 0 ? '+' : ''}${d} ${rot}</em>`; };
+  const miniLinha = (pts, k) => { if (pts.length < 2) return ''; const max = Math.max(1, ...pts.map(p => p[k])); return `<svg class="mini-linha" viewBox="0 0 100 24" preserveAspectRatio="none" aria-hidden="true"><path d="${pts.map((p, i) => `${i ? 'L' : 'M'}${(i / (pts.length - 1) * 100).toFixed(1)},${(22 - p[k] / max * 20).toFixed(1)}`).join('')}"/></svg>`; };
 
   // ---------- abas ----------
   function geral() {
@@ -361,11 +380,13 @@
     const incs = (ultimo?.incidentes || []).filter(i => i.status === 'aberto').length;
     const t = dados?.totais;
     const rm = ultimo?.rotinas?.config?.resumoManha;
-    return `${rm?.ativo !== false ? `<div class="resumo-manha"><div><b>Resumo da manhã</b><small>Todo dia às ${esc(rm?.hora || '08:00')}: ontem, o que espera você, saúde e plano do dia.</small></div><button data-resumo-agora>Ver agora</button></div>` : ''}
-      <div class="kpis">
-        ${kpi(trab, 'trabalhando agora', trab ? 'bom' : '')}
+    const dias = dados?.dias || [], ontemN = dias.length > 1 ? dados.porDia[dias.at(-2)]?.total : null;
+    const vivo = (ultimo?.aoVivo || []).slice(-60);
+    return `${rm?.ativo !== false ? `<div class="resumo-manha largo"><div><b>Resumo da manhã</b><small>Todo dia às ${esc(rm?.hora || '08:00')}: ontem, o que espera você, saúde e plano do dia.</small></div><button data-resumo-agora>Ver agora</button></div>` : ''}
+      <div class="kpis largo">
+        ${kpi(trab, 'trabalhando agora', trab ? 'bom' : '', '', miniLinha(vivo, 'trabalhando'))}
         ${kpi(esp, 'esperando você', esp ? 'aviso' : '')}
-        ${kpi(t ? t.hoje : '–', 'entregas hoje')}
+        ${kpi(t ? t.hoje : '–', 'entregas hoje', '', '', ontemN != null ? `<em class="delta">ontem: ${ontemN}</em>` : '')}
         ${kpi(t ? t.semana : '–', 'entregas na semana')}
         ${kpi(incs, 'incidentes abertos', incs ? 'ruim' : 'bom', 'data-extra="sala"')}
         ${kpi(t ? brl(t.usdMes) : '–', 'equivalente em 30 dias', '', 'data-extra="consumo"')}
@@ -465,7 +486,7 @@
           <input name="titulo" data-rascunho="meta:titulo" maxlength="160" placeholder="Ex.: lançar o app na loja" aria-label="Meta">
           <textarea name="passos" data-rascunho="meta:passos" rows="3" placeholder="Passos, um por linha (opcional)" aria-label="Passos"></textarea>
           <button type="submit" class="principal-g">Criar meta</button></form></details></section>`;
-    return `${blocoMetas}${blocoIdeias}<section class="bloco"><h3>Quadro do trabalho</h3><p class="sub">O que está acontecendo agora. Clique num cartão para abrir a conversa.</p>
+    return `${blocoMetas}${blocoIdeias}<section class="bloco largo"><h3>Quadro do trabalho</h3><p class="sub">O que está acontecendo agora. Clique num cartão para abrir a conversa.</p>
       <div class="kanban">
         ${col('Na fila', fila.length, fila.map(o => cartao(o.pedido, `${nomeSala(o.setor)} · ${o.triando ? 'escolhendo especialista' : 'esperando vaga'}`, corSetor(o.setor))), 'Nada esperando.')}
         ${col('Fazendo', fazendo.length, fazendo.map(a => cartao(a.nome, `${nomeSala(a.setor)} · ${curto(a.acao || a.pedido || 'trabalhando', 60)}`, corSetor(a.setor), `data-agente="${esc(a.id)}"`)), 'Ninguém trabalhando agora.')}
@@ -502,7 +523,7 @@
     if (!dados) return carregando();
     return `${blocoReuniao()}<section class="bloco"><h3>Quem faz o quê</h3><p class="sub">Responsabilidade, permissões e o que cada especialista entregou nos últimos 30 dias.</p>
       <input id="filtroEquipe" type="search" placeholder="Procurar especialista ou responsabilidade" value="${esc(filtroEquipe)}" autocomplete="off"></section>
-      <div class="equipe-g" id="equipeLista">${listaEquipe()}</div>`;
+      <div class="equipe-g largo" id="equipeLista">${listaEquipe()}</div>`;
   }
   function listaEquipe() {
     const f = filtroEquipe.trim().toLowerCase();
@@ -575,7 +596,7 @@
         <footer><button data-pedir="${esc(st.id)}">Pedir algo</button>${po && avatares.get('po:' + st.id) ? `<button data-agente="po:${esc(st.id)}">Falar com ${esc(po.nome)} (PO)</button>` : ''}</footer>
       </article>` };
     }).sort((a, b) => b.peso - a.peso);
-    return `<section class="bloco solto"><h3>Seus projetos</h3><p class="sub">Os mais movimentados primeiro.</p></section>${fichas.map(f => f.html).join('')}`;
+    return `<section class="bloco solto largo"><h3>Seus projetos</h3><p class="sub">Os mais movimentados primeiro.</p></section>${fichas.map(f => f.html).join('')}`;
   }
   function atividadeAba() {
     if (!dados) return carregando();
@@ -637,8 +658,16 @@
       ${props.map(p => `<div class="contratacao"><div class="ct-topo"><span class="avatar" style="background:${esc(p.especialista.cor)}">${esc(p.especialista.nome.slice(0, 1))}</span><div><b>${esc(p.especialista.nome)}</b><small>${esc(p.especialista.descricao)} · ${esc(p.especialista.modelo)}</small></div></div>
         <p>${esc(p.motivo)}</p><details><summary>Ver o manual proposto</summary><pre class="manual">${esc(p.especialista.manual)}</pre></details>
         <div class="pend-acoes"><button data-rh="${esc(p.id)}:recusar">Recusar</button><button class="principal-g" data-rh="${esc(p.id)}:aprovar">Contratar</button></div></div>`).join('')}</section>` : '';
-    return `${blocoRH}<section class="bloco solto"><h3>Departamentos</h3><p class="sub">Cada área tem a sua sala no andar da empresa, os seus especialistas e uma rotina. Os relatórios chegam nas Conversas.</p></section>
-      <div class="deptos">${ds.map(d => {
+    const ideias = (ultimo?.propostasMelhoria || []).filter(p => p.status === 'aguardando');
+    const rotTipo = { setor: 'setor novo', visual: 'visual', funcionalidade: 'funcionalidade', tecnologia: 'tecnologia', layout: 'layout' };
+    const blocoCresc = ideias.length ? `<section class="bloco largo alerta-pub"><div class="tit-linha"><h3>Ideias de crescimento esperando você</h3><span class="sub">${ideias.length} para aprovar. Só vira tarefa o que você aprovar.</span></div>
+      <div class="ideias-cresc">${ideias.map(p => `<article class="cresc"><div class="cresc-topo"><span class="chip tipo-${esc(p.tipo || 'funcionalidade')}">${esc(rotTipo[p.tipo] || 'ideia')}</span><span class="chip leve">${esc(p.tamanho || 'pequena')}</span><small>${esc(quando(p.criada))}</small></div>
+        <b>${esc(p.titulo)}</b><p>${esc(p.porque)}</p>
+        <details><summary>Como seria feito</summary><p class="como">${esc(p.oque)}</p>${p.risco ? `<p class="como"><b>Risco:</b> ${esc(p.risco)}</p>` : ''}</details>
+        <form class="decidir-cresc" data-id="${esc(p.id)}"><input name="motivo" data-rascunho="cresc:${esc(p.id)}" maxlength="300" placeholder="Se recusar, diga por quê (opcional)" aria-label="Motivo da recusa">
+          <button type="submit" value="recusar">Recusar</button><button type="submit" value="aprovar" class="principal-g">Aprovar</button></form></article>`).join('')}</div></section>` : '';
+    return `${blocoCresc}${blocoRH}<section class="bloco solto largo"><h3>Departamentos</h3><p class="sub">Cada área tem a sua sala no andar da empresa, os seus especialistas e uma rotina. Os relatórios chegam nas Conversas.</p></section>
+      <div class="deptos largo">${ds.map(d => {
         const e = d.estado || {};
         return `<article class="depto" style="--c:${esc(d.cor)}"><header><i></i><div><b>${esc(d.nome)}</b><small>${esc(rotinaTxt(d.rotina))}</small></div>
             <span class="dep-st ${e.rodando ? 'rodando' : e.erro ? 'erro' : ''}">${e.rodando ? 'trabalhando…' : e.erro ? 'deu erro' : e.ultima ? 'último ' + esc(quando(e.ultima)) : 'ainda não rodou'}</span></header>
@@ -657,14 +686,14 @@
     const semCadastro = !fin.custos.length;
     const cats = { claude: 'Assinatura do Claude', servidor: 'Servidor (VPS)', dominio: 'Domínio', loja: 'Loja de apps', api: 'API paga', servico: 'Serviço', outro: 'Outro' };
     const projs = (setoresLista || []).filter(x => x.id !== 'escritorio');
-    return `<div class="kpis">${kpi(reais(fin.totalMensal), 'custo por mês')}${kpi(reais(fin.assinatura), 'assinatura do Claude')}${kpi(reais(fin.servidor), 'servidor')}</div>
+    return `<div class="kpis largo">${kpi(reais(fin.totalMensal), 'custo por mês')}${kpi(reais(fin.assinatura), 'assinatura do Claude')}${kpi(reais(fin.servidor), 'servidor')}</div>
       ${semCadastro ? `<section class="bloco alerta-pub"><h3>Comece cadastrando os custos</h3><p class="sub" style="margin:0">Cadastre a assinatura do Claude (categoria “Assinatura do Claude”) e a VPS (categoria “Servidor”) como custos gerais. O Financeiro divide entre os projetos pelo uso. Depois cadastre domínios, lojas de apps e APIs em cada projeto.</p></section>` : ''}
       <section class="bloco"><h3>Quanto cada projeto custa por mês</h3><p class="sub">Custos diretos + parte da assinatura do Claude (pelo uso nos últimos 30 dias) + parte do servidor (70% memória, 30% disco). As partes são estimativas.</p>
         ${ps.length ? `<ul class="fin-barras">${ps.map(p => `<li><span class="bh-nome">${esc(p.nome)}</span><span class="fin-trilho">
             <i style="width:${p.diretos / max * 100}%;background:${esc(p.cor)}" title="diretos ${reais(p.diretos)}"></i><i style="width:${p.claude / max * 100}%;background:var(--info)" title="Claude ${reais(p.claude)}"></i><i style="width:${p.servidor / max * 100}%;background:var(--aviso)" title="servidor ${reais(p.servidor)}"></i></span>
             <span class="bh-valor">${reais(p.total)}</span></li>`).join('')}</ul>
           <ul class="legenda-g"><li><i style="background:var(--g-outros)"></i>custos diretos</li><li><i style="background:var(--info)"></i>parte do Claude</li><li><i style="background:var(--aviso)"></i>parte do servidor</li></ul>` : '<p class="vazio-g">Sem dados ainda.</p>'}</section>
-      <section class="bloco"><h3>Detalhe por projeto</h3>
+      <section class="bloco largo"><h3>Detalhe por projeto</h3>
         <div class="fin-tabela"><table><thead><tr><th>Projeto</th><th>Uso do Claude</th><th>Memória · disco</th><th>Equivalente na API</th><th>Serviços pagos</th></tr></thead><tbody>
           ${fin.projetos.map(p => `<tr><td><b>${esc(p.nome)}</b></td><td>${p.usoClaude}%</td><td>${p.memoriaMB} MB · ${(p.discoMB / 1024).toFixed(1)} GB</td><td>${fin.cambio ? reais(p.equivalenteApiUSD * fin.cambio) : 'US$ ' + p.equivalenteApiUSD.toFixed(2)}</td><td>${p.servicos.map(x => `<span class="chip leve">${esc(x)}</span>`).join(' ') || '–'}</td></tr>`).join('')}
         </tbody></table></div>
