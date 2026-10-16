@@ -1533,7 +1533,7 @@ async function novaOrdem({ setor, pedido, conta, modelo, papel, anexos, sessao, 
   const o = { id, unidade: `escritorio-ordem-${id}`, setor, pasta, conta, modelo, papel, sessao: s?.id || null, origem, modo,
     pedido: curto(censurar(extra.pedidoVisivel || pedido), 160), anexos: ax.lista, dirAnexos: ax.dir, textoCompleto: pedido, criada: Date.now(), inicio: null, ativa: false, naFila: true,
     tarefa: extra.tarefa || null, revisoes: extra.revisoes || 0, pedidoVisivel: extra.pedidoVisivel || null,
-    autorizarDeploy: !!extra.autorizarDeploy, deploy: extra.deploy || null, triada: !!extra.autorizarDeploy };
+    autorizarDeploy: !!extra.autorizarDeploy, deploy: extra.deploy || null, triada: !!extra.autorizarDeploy, convidado: extra.convidado || null };
   ordens.set(id, o);
   fs.appendFile(ARQ_ORDENS, JSON.stringify({ id, setor, conta, modelo, papel, sessao: o.sessao, origem, ip, pedido: censurarTexto(pedido), criada: o.criada }) + '\n', { mode: 0o600 }, () => {});
   despachar();
@@ -1639,12 +1639,14 @@ async function iniciarOrdem(o) {
       o.papel = escolhido;
     }
   }
+  if (o.convidado && o.papel === 'estrategia') o.papel = 'produto';
   let pedido = o.textoCompleto;
   if (o.anexos.length) pedido += `\n\nArquivos anexados (abra com a ferramenta Read antes de começar):\n` + o.anexos.map(a => `- ${path.join(o.dirAnexos, a.nome)}`).join('\n');
   const args = ['--unit=' + o.unidade, '--collect', '--quiet', '--property=WorkingDirectory=' + o.pasta, '--property=RuntimeMaxSec=4h',
     '--setenv=HOME=/root', '--setenv=ESCRITORIO_ORDEM=' + o.id, '--setenv=PATH=' + (process.env.PATH || '/usr/local/bin:/usr/bin:/bin')];
   args.push(...envConta(o.conta));
   if (o.autorizarDeploy) args.push('--setenv=ESCRITORIO_DEPLOY_AUTORIZADO=1');
+  if (o.convidado) args.push(...trancaDoConvidado(o));
   // conversa = modo de planejamento: o agente lê e responde, mas não altera nada
   args.push(CLAUDE_BIN, '-p', pedido, '--permission-mode', o.modo === 'conversa' ? 'plan' : 'auto');
   if (o.sessao) args.push('--resume', o.sessao);
@@ -1655,7 +1657,7 @@ async function iniciarOrdem(o) {
   const esp = lerEspecialista(papel);
   if (esp) {
     const delegar = `\n\n## Trabalho em equipe\nSe o pedido (ou parte dele) for da área de outro especialista, NÃO faça improvisando: delegue essa parte ao especialista certo com a ferramenta Agent (subagent_type = id do especialista) e junte o resultado na sua resposta final. Se o pedido inteiro for de outra área, delegue tudo e diga no final quem fez. Especialistas da casa: ${regrasPapel.filter(e => e.id !== esp.id).map(e => `${e.id} (${e.nome})`).join(', ')}.`;
-    const def = { description: esp.descricao || esp.nome, prompt: `${contextoEmpresa()}\n\n---\n\n${esp.manual}${delegar}` };
+    const def = { description: esp.descricao || esp.nome, prompt: o.convidado ? `${contextoConvidado(o)}\n\n---\n\n${limparParaConvidado(esp.manual, o.setor)}${delegar}` : `${contextoEmpresa()}\n\n---\n\n${esp.manual}${delegar}` };
     const modelo = o.modelo || esp.modelo;
     if (modelo) def.model = modelo;
     if (esp.ferramentas) def.tools = [...new Set([...esp.ferramentas, 'Agent'])];
@@ -1665,7 +1667,7 @@ async function iniciarOrdem(o) {
       if (e.id === esp.id) continue;
       const x = lerEspecialista(e.id);
       if (!x) continue;
-      const d = { description: `${x.nome}: ${x.descricao}`, prompt: `Você foi chamado por um colega do escritório da ${EMPRESA()} para cuidar da parte da sua área. Siga as regras da casa: trabalhe só na pasta atual, não exponha segredos, produção só com pedido explícito.\n\n${x.manual}` };
+      const d = { description: `${x.nome}: ${x.descricao}`, prompt: `Você foi chamado por um colega do escritório da ${EMPRESA()} para cuidar da parte da sua área. Siga as regras da casa: trabalhe só na pasta atual, não exponha segredos, produção só com pedido explícito.\n\n${o.convidado ? limparParaConvidado(x.manual, o.setor) : x.manual}` };
       if (x.modelo) d.model = x.modelo;
       if (x.ferramentas) d.tools = x.ferramentas;
       time[e.id] = d;
@@ -1676,14 +1678,15 @@ async function iniciarOrdem(o) {
     if (o.modelo) args.push('--model', o.modelo);
   } else if (o.modelo) args.push('--model', o.modelo);
   // memória do projeto: notas do cofre para ler antes de começar
-  const notas = notasDoProjeto(o.setor);
-  const ehEstrategista = (o.papel || (sessaoAnterior?.papelFixo ? sessaoAnterior.especialidade : '')) === 'estrategia';
+  const notas = o.convidado ? [] : notasDoProjeto(o.setor); // convidado não lê o cofre
+  const ehEstrategista = !o.convidado && (o.papel || (sessaoAnterior?.papelFixo ? sessaoAnterior.especialidade : '')) === 'estrategia'; // o estrategista vê a empresa inteira: nunca para convidado
   if ((notas.length || ehEstrategista) && fs.existsSync(COFRE)) args.push('--add-dir', COFRE);
   if (ehEstrategista && o.pasta !== RAIZ_PROJETOS) args.push('--add-dir', RAIZ_PROJETOS);
-  const instrucao = [esp ? null : contextoEmpresa(),
+  const instrucao = [esp ? null : (o.convidado ? contextoConvidado(o) : contextoEmpresa()),
     notas.length ? `Memória deste projeto no cofre (leia as notas relevantes antes de começar; não edite o cofre):\n${notas.map(n => '- ' + n).join('\n')}` : null,
     ehEstrategista ? panoramaDaEmpresa() : null,
-    o.modo === 'conversa' ? 'A dona da empresa está conversando com você pelo escritório, como num chat. Responda direto, curto e em português simples, sem jargão. Nesta etapa NÃO altere nada: só leia, pense e responda. Se for preciso executar algo, explique em poucas linhas o que vai fazer e diga que ela pode clicar em Executar.'
+    o.modo === 'conversa' && o.convidado ? 'O convidado está conversando com você pelo escritório, como num chat. Responda direto, curto e em português simples. Nesta etapa NÃO altere nada: só leia, pense e responda. Se for preciso executar algo, explique o que vai fazer e diga que ele pode clicar em Executar.'
+      : o.modo === 'conversa' ? 'A dona da empresa está conversando com você pelo escritório, como num chat. Responda direto, curto e em português simples, sem jargão. Nesta etapa NÃO altere nada: só leia, pense e responda. Se for preciso executar algo, explique em poucas linhas o que vai fazer e diga que ela pode clicar em Executar.'
       : o.sessao ? 'A dona respondeu pelo escritório e pediu para executar. Faça o combinado e, no fim, explique em português simples o que foi feito.' : null].filter(Boolean).join('\n\n');
   if (instrucao) args.push('--append-system-prompt', instrucao);
   o.naFila = false;
@@ -2327,6 +2330,161 @@ async function conduzirReuniao(r, pasta) {
   notificar('esperando', `A reunião sobre "${curto(r.tema, 60)}" terminou: ${curto(r.decisao.texto, 160)}`);
 }
 
+// ---------- convidados: link para um amigo trabalhar em UM projeto ----------
+// Permissão por convidado: 'ver' (só acompanha), 'aprovar' (pede e a dona aprova) ou 'direto' (roda na hora).
+// O token do link nunca é guardado em texto: só o hash. Toda requisição revalida o convite (cancelar vale na hora).
+const ARQ_CONVITES = path.join(DADOS, 'convites.json');
+let convites = [];
+try { convites = JSON.parse(fs.readFileSync(ARQ_CONVITES, 'utf8')); } catch { convites = []; }
+const gravarConvites = () => gravarJSON(ARQ_CONVITES, convites.slice(0, 100));
+const hashToken = t => crypto.createHash('sha256').update(String(t)).digest('hex');
+const PERMISSOES = ['ver', 'aprovar', 'direto'];
+const semAnexos = t => String(t || '').split('\n\nArquivos anexados')[0];
+const conviteAtivo = c => c && c.ativo && (!c.expira || c.expira > Date.now());
+function criarConvite(d) {
+  const nome = String(d.nome || '').trim().slice(0, 60);
+  if (nome.length < 2) return { erro: 'Escreva o nome do seu amigo.' };
+  if (!listaSetores().some(x => x.id === d.setor) || ['geral', 'escritorio'].includes(d.setor)) return { erro: 'Escolha um projeto.' };
+  if (!pastaDoSetor(d.setor)) return { erro: 'Esse projeto não tem pasta.' };
+  const permissao = PERMISSOES.includes(d.permissao) ? d.permissao : 'aprovar';
+  const conta = Object.keys(config.contas || { pessoal: '' }).includes(d.conta) ? d.conta : Object.keys(config.contas || { pessoal: '' })[0];
+  const dias = Number(d.dias);
+  const token = crypto.randomBytes(24).toString('base64url');
+  const c = { id: novoId(), nome, setor: d.setor, permissao, conta, criado: Date.now(), expira: dias > 0 ? Date.now() + Math.min(dias, 90) * 864e5 : null,
+    hash: hashToken(token), ativo: true, ordens: [], pendentes: [] };
+  convites.unshift(c); gravarConvites(); avisar();
+  return { ok: true, id: c.id, link: linkDoConvite(token) };
+}
+const linkDoConvite = token => { const h = (config.origensPermitidas || [])[0]; return `${h ? 'https://' + h : ''}/convite/${token}`; };
+function acaoConvite(id, acao, d) {
+  const c = convites.find(x => x.id === id);
+  if (!c) return { erro: 'Convite não encontrado.' };
+  if (acao === 'cancelar') { c.ativo = false; c.cancelado = Date.now(); for (const [t, g] of convidadosLogados) if (g.convite === id) convidadosLogados.delete(t); gravarSessoesConvidado(); }
+  else if (acao === 'permissao') { if (!PERMISSOES.includes(d.permissao)) return { erro: 'Permissão inválida.' }; c.permissao = d.permissao; }
+  else if (acao === 'renovar') { const dias = Number(d.dias) || 7; c.expira = Date.now() + Math.min(dias, 90) * 864e5; c.ativo = true; }
+  else if (acao === 'novo-link') { const token = crypto.randomBytes(24).toString('base64url'); c.hash = hashToken(token); for (const [t, g] of convidadosLogados) if (g.convite === id) convidadosLogados.delete(t); gravarSessoesConvidado(); gravarConvites(); avisar(); return { ok: true, link: linkDoConvite(token) }; }
+  else if (acao === 'apagar') { convites = convites.filter(x => x !== c); for (const [t, g] of convidadosLogados) if (g.convite === id) convidadosLogados.delete(t); gravarSessoesConvidado(); }
+  else return { erro: 'Ação inválida.' };
+  gravarConvites(); avisar();
+  return { ok: true };
+}
+// conversas do convidado: só as sessões que nasceram de pedidos dele
+function sessoesDoConvidado(c) {
+  const ids = new Set();
+  for (const r of relatorios) if (r.ordem && c.ordens.includes(r.ordem) && r.sessao) ids.add(r.sessao);
+  for (const sx of sessoes.values()) if (sx.ordem && c.ordens.includes(sx.ordem)) ids.add(sx.id);
+  return ids;
+}
+async function pedidoDoConvidado(c, d, ip) {
+  if (c.permissao === 'ver') return { erro: 'Seu acesso é só para acompanhar.' };
+  const pedido = String(d.pedido || '').trim().slice(0, 6000);
+  if (pedido.length < 3) return { erro: 'Escreva o pedido.' };
+  const modo = d.modo === 'conversa' ? 'conversa' : 'executar';
+  const sessao = d.sessao && sessoesDoConvidado(c).has(d.sessao) ? d.sessao : null;
+  if (d.sessao && !sessao) return { erro: 'Essa conversa não é sua.' };
+  const abertos = c.ordens.filter(id => { const o = ordens.get(id); return o && (o.ativa || o.naFila); }).length + c.pendentes.filter(x => x.status === 'aguardando').length;
+  if (abertos >= 3) return { erro: 'Você já tem 3 pedidos em andamento. Espere algum terminar.' };
+  if (c.permissao === 'aprovar') {
+    c.pendentes.unshift({ id: novoId(), pedido, modo, sessao, criado: Date.now(), status: 'aguardando' });
+    c.pendentes = c.pendentes.slice(0, 50); gravarConvites(); avisar();
+    notificar('esperando', `${c.nome} (convidado em ${nomeSetor(c.setor)}) pediu: ${curto(pedido, 140)}. Abra Ajustes → Convidados para aprovar.`);
+    return { ok: true, aguardando: true };
+  }
+  return mandarDoConvidado(c, { pedido, modo, sessao }, ip);
+}
+async function mandarDoConvidado(c, { pedido, modo, sessao }, ip) {
+  const r = await novaOrdem({ setor: c.setor, pedido: `${pedido}\n\n(Pedido de ${c.nome}, convidado neste projeto. Trabalhe só nesta pasta.)`, conta: c.conta, modo, sessao: sessao || undefined }, ip, 'convidado', { convidado: c.id, pedidoVisivel: `${c.nome}: ${curto(pedido, 140)}` });
+  if (r.erro) return r;
+  c.ordens.push(r.id); c.ordens = c.ordens.slice(-200); gravarConvites(); avisar();
+  return { ok: true, ordem: r.id };
+}
+async function decidirPedidoConvidado(id, pid, aprovar, ip) {
+  const c = convites.find(x => x.id === id), pd = c?.pendentes.find(x => x.id === pid);
+  if (!pd || pd.status !== 'aguardando') return { erro: 'Esse pedido não está aguardando.' };
+  if (!aprovar) { pd.status = 'recusado'; pd.decidido = Date.now(); gravarConvites(); avisar(); return { ok: true }; }
+  if (!conviteAtivo(c)) return { erro: 'O convite não está mais ativo.' };
+  const r = await mandarDoConvidado(c, pd, ip);
+  if (r.erro) return r;
+  pd.status = 'aprovado'; pd.decidido = Date.now(); pd.ordem = r.ordem; gravarConvites(); avisar();
+  return { ok: true };
+}
+// tranca: a tarefa de convidado só enxerga a pasta do projeto (o resto do servidor fica invisível)
+function trancaDoConvidado(o) {
+  const minhas = (listaSetores().find(x => x.id === o.setor)?.pastas || [o.pasta]).map(p => path.resolve(p));
+  const ehMeuCaminho = p => minhas.some(m => m === p || m.startsWith(p + '/') || p.startsWith(m + '/'));
+  const esconder = new Set();
+  // pastas de outros projetos
+  for (const st of listaSetores()) for (const p of st.pastas || []) { const r = path.resolve(p); if (!ehMeuCaminho(r)) esconder.add(r); }
+  // vizinhos no caminho até a pasta do projeto (ex.: os outros projetos dentro da raiz)
+  for (const m of minhas) {
+    let pai = path.dirname(m), filho = m;
+    while (pai.length > 1 && pai !== os.homedir()) {
+      try { for (const e of fs.readdirSync(pai)) { const q = path.join(pai, e); if (q !== filho && !ehMeuCaminho(q)) esconder.add(q); } } catch { /* sem acesso */ }
+      filho = pai; pai = path.dirname(pai);
+    }
+  }
+  // coisas sensíveis do servidor
+  const casa = os.homedir();
+  for (const x of ['.ssh', '.config/gh', '.docker', '.git-credentials', '.netrc', '.aws', '.kube', 'backups', 'backup-vps', '.gnupg']) esconder.add(path.join(casa, x));
+  // do escritório, o convidado só precisa dos ganchos (e do token deles): esconde config, conversas, senhas e manuais
+  esconder.add(path.join(RAIZ, 'config.json')); esconder.add(path.join(RAIZ, 'especialistas')); esconder.add(path.join(RAIZ, '.git'));
+  try { for (const f of fs.readdirSync(DADOS)) if (f !== 'hook-token') esconder.add(path.join(DADOS, f)); } catch { /* sem dados */ }
+  // conta do Claude: some o histórico e as conversas dos outros projetos, as instruções globais e as skills
+  const dirClaude = dirConta(o.conta) || path.join(casa, '.claude');
+  for (const x of ['history.jsonl', 'file-history', 'backups', 'plans', 'paste-cache', 'uploads', 'CLAUDE.md', 'skills', 'tasks']) esconder.add(path.join(dirClaude, x));
+  const meuProjeto = path.resolve(o.pasta).replace(/[^a-zA-Z0-9]/g, '-');
+  try { for (const d of fs.readdirSync(path.join(dirClaude, 'projects'))) if (d !== meuProjeto) esconder.add(path.join(dirClaude, 'projects', d)); } catch { /* sem pasta */ }
+  for (const x of [COFRE, config.backupEscritorio, '/var/run/docker.sock', '/run/docker.sock', '/etc/escritorio-agentes.conf', '/data/coolify', ...(config.pastasBackup || [])]) if (x) esconder.add(path.resolve(x));
+  // a outra conta do Claude (o convidado só usa a conta escolhida no convite)
+  for (const [conta, dir] of Object.entries(config.contas || {})) if (dir && conta !== o.conta) esconder.add(path.resolve(dir));
+  for (const m of minhas) for (const x of [...esconder]) if (m === x || m.startsWith(x + '/')) esconder.delete(x);
+  // os ganchos do escritório (eventos e a trava de publicação) precisam continuar visíveis
+  for (const x of [...esconder]) if (x === RAIZ || RAIZ.startsWith(x + '/') || x === path.join(RAIZ, 'hooks') || x === path.join(DADOS, 'hook-token') || x === DADOS) esconder.delete(x);
+  if (process.env.ESCRITORIO_DEBUG_TRANCA) console.log('tranca:', [...esconder].join(' '));
+  return ['--property=NoNewPrivileges=yes', '--property=PrivateDevices=yes', '--property=ProtectKernelTunables=yes', '--property=ProtectKernelModules=yes', '--property=ProtectControlGroups=yes',
+    ...[...esconder].sort().map(x => `--property=InaccessiblePaths=-${x}`)];
+}
+function contextoConvidado(o) {
+  const c = convites.find(x => x.id === o.convidado);
+  return `# Você trabalha para um convidado\n\nQuem está pedindo é ${c?.nome || 'um convidado'}, convidado para trabalhar SÓ no projeto ${nomeSetor(o.setor)} (pasta ${o.pasta}).\n\n## Regras\n1. Trabalhe só nesta pasta. Não tente ler, listar ou alterar nada fora dela, nem configurações do servidor.\n2. Nunca mostre, copie ou registre segredos (.env, tokens, senhas, chaves).\n3. Publicar em produção é bloqueado; se for preciso, prepare tudo e explique o que falta.\n4. Só faça commit/push se a tarefa pedir. Nunca force push.\n5. Se faltar uma decisão importante, pare e pergunte (até 3 perguntas objetivas).\n\n## Como entregar\nTermine com uma resposta curta em português simples: **O que fiz**, **Como conferi**, **Atenção** (se houver) e **Próximos passos** (se fizer sentido).`;
+}
+function limparParaConvidado(texto, setor) {
+  const termos = [];
+  for (const st of listaSetores()) if (st.id !== setor && !['geral', 'escritorio'].includes(st.id)) { termos.push(st.id, st.nome); for (const p of st.pastas || []) termos.push(p); }
+  termos.push(EMPRESA(), RAIZ_PROJETOS, COFRE);
+  const re = new RegExp(termos.filter(t => t && String(t).length >= 3).map(t => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
+  return String(texto || '').split('\n').filter(l => !re.test(l)).join('\n');
+}
+// sessão do convidado (cookie próprio, separado do login da dona)
+// guardadas pelo hash do cookie, para sobreviver a reinícios sem deixar o token em disco
+const ARQ_SESSOES_CONVIDADO = path.join(DADOS, 'sessoes-convidado.json');
+const convidadosLogados = new Map();
+try { for (const [h, g] of Object.entries(JSON.parse(fs.readFileSync(ARQ_SESSOES_CONVIDADO, 'utf8')))) if (g.exp > Date.now()) convidadosLogados.set(h, g); } catch { /* nenhuma */ }
+const gravarSessoesConvidado = () => gravarJSON(ARQ_SESSOES_CONVIDADO, Object.fromEntries(convidadosLogados));
+function convidadoDe(req) {
+  const bruto = lerCookie(req, 'escritorio_convidado'), t = bruto && hashToken(bruto);
+  const g = t && convidadosLogados.get(t);
+  if (!g) return null;
+  const c = convites.find(x => x.id === g.convite);
+  if (!conviteAtivo(c) || g.exp < Date.now()) { convidadosLogados.delete(t); gravarSessoesConvidado(); return null; }
+  return c;
+}
+function estadoDoConvidado(c) {
+  const st = listaSetores().find(x => x.id === c.setor);
+  const minhas = sessoesDoConvidado(c);
+  const conversas = {};
+  for (const r of relatorios.filter(r => r.ordem && c.ordens.includes(r.ordem) && !r.emRevisao).sort((a, b) => a.fim - b.fim)) {
+    const k = r.sessao || r.id;
+    (conversas[k] ||= []).push({ tipo: 'entrega', t: r.fim, agente: r.agente, pedido: semAnexos(r.pedido || '').replace(/\n\n\(Pedido de .*$/s, '').replace(new RegExp('^' + c.nome.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ':\\s*'), ''), simples: r.simples || null, resposta: r.simples ? '' : curto(r.resposta || '', 3000), modo: r.modo });
+  }
+  const andando = c.ordens.map(id => ordens.get(id)).filter(o => o && (o.ativa || o.naFila)).map(o => ({ pedido: (o.pedidoVisivel || o.pedido).replace(/^[^:]+:\s*/, ''), sessao: o.sessao, naFila: o.naFila, ativa: o.ativa, criada: o.criada }));
+  return {
+    convite: { nome: c.nome, permissao: c.permissao, expira: c.expira, projeto: st?.nome || c.setor, cor: st?.cor || '#888780', empresa: EMPRESA() },
+    agentes: [...sessoes.values()].filter(x => x.setor === c.setor && x.estado !== 'saiu').map(x => ({ id: minhas.has(x.id) ? x.id : null, nome: x.nome, estado: x.estado, especialidade: regrasPapel.find(e => e.id === x.especialidade)?.nome || '', acao: minhas.has(x.id) ? curto(x.acao || '', 120) : (x.estado === 'trabalhando' ? 'trabalhando' : ''), meu: minhas.has(x.id) })),
+    conversas, andando, pendentes: c.pendentes.filter(p => p.status === 'aguardando' || Date.now() - (p.decidido || 0) < 864e5).map(({ id, pedido, status, criado, sessao }) => ({ id, pedido, status, criado, sessao })),
+  };
+}
+
 // ---------- painel lateral: gráficos, equipe e saúde ----------
 // o que é de cada um além das tarefas que recebe (rotinas e papéis fixos da empresa)
 const RESPONSABILIDADES = {
@@ -2417,6 +2575,8 @@ function foto() {
     nomeServidor: config.nomeServidor || 'servidor',
     telegram: telegram ? { ligado: true, eventos: telegram.eventos } : { ligado: false }, minhaSala: config.minhaSala || {},
     especialidades: regrasPapel.map(({ id, nome, cor, instrucao }) => ({ id, nome, cor, instrucao, ...(infoEspecialistas[id] || {}) })),
+    contas: Object.keys(config.contas || { pessoal: '' }),
+    convites: convites.map(({ hash, ...c }) => ({ ...c, ativoAgora: conviteAtivo(c), projeto: nomeSetor(c.setor) })),
     reunioes: reunioes.slice(0, 8).map(({ conta, ...r }) => r),
     metas: metas.filter(m => m.status === 'ativa' || Date.now() - (m.concluida || 0) < 7 * 864e5).slice(0, 40),
     ideias: ideias.filter(i => i.status !== 'mandada' || Date.now() - (i.mandada || 0) < 3 * 864e5).slice(0, 120),
@@ -2560,6 +2720,39 @@ const servidor = http.createServer(async (req, res) => {
 
     if (PUBLICOS_SEM_LOGIN.has(rota) || rota.startsWith('/vendor/')) return servirArquivo(res, rota);
 
+    // link de convite: troca o token do link por uma sessão de convidado
+    const lc = rota.match(/^\/convite\/([A-Za-z0-9_-]{20,64})$/);
+    if (lc && req.method === 'GET') {
+      const c = convites.find(x => x.hash === hashToken(lc[1]));
+      if (!conviteAtivo(c)) { res.writeHead(410, { 'Content-Type': 'text/html; charset=utf-8' }); return res.end('<p style="font-family:system-ui;padding:24px">Este convite expirou ou foi cancelado. Peça um novo link.</p>'); }
+      const t = crypto.randomBytes(32).toString('hex');
+      convidadosLogados.set(hashToken(t), { convite: c.id, exp: Math.min(c.expira || Infinity, Date.now() + 7 * 864e5) }); gravarSessoesConvidado();
+      c.ultimoAcesso = Date.now(); gravarConvites();
+      res.writeHead(302, { 'Set-Cookie': `escritorio_convidado=${t}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${7 * 86400}${COOKIE_SEGURO ? '; Secure' : ''}`, Location: '/convidado.html' });
+      return res.end();
+    }
+    // convidado (sem login da dona): só a página dele e as rotas dele
+    if (!logado(req)) {
+      const cv = convidadoDe(req);
+      if (cv) {
+        if (req.method === 'POST') {
+          const origem = req.headers.origin; let ho = null;
+          try { ho = origem ? new URL(origem).host : null; } catch { ho = '?'; }
+          const permitidos = [req.headers.host, req.headers['x-forwarded-host'], ...(config.origensPermitidas || [])].filter(Boolean);
+          if (!String(req.headers['content-type'] || '').startsWith('application/json') || (origem && !permitidos.includes(ho))) return json(res, 403, { erro: 'origem' });
+        }
+        if (rota === '/convidado.html' || rota === '/convidado.js') return servirArquivo(res, rota);
+        if (rota === '/api/convidado/estado' && req.method === 'GET') return json(res, 200, estadoDoConvidado(cv));
+        if (rota === '/api/convidado/pedido' && req.method === 'POST') {
+          let d; try { d = JSON.parse(await lerCorpo(req, 32 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
+          const r = await pedidoDoConvidado(cv, d, ipDe(req)); return json(res, r.erro ? 400 : 200, r);
+        }
+        if (rota === '/api/convidado/sair' && req.method === 'POST') { convidadosLogados.delete(hashToken(lerCookie(req, 'escritorio_convidado'))); gravarSessoesConvidado(); res.setHeader('Set-Cookie', 'escritorio_convidado=; HttpOnly; Path=/; Max-Age=0'); return json(res, 200, { ok: true }); }
+        if (rota.startsWith('/api/')) return json(res, 403, { erro: 'Convidado só acessa o próprio projeto.' });
+        res.writeHead(302, { Location: '/convidado.html' }); return res.end();
+      }
+    }
+
     if (!logado(req)) {
       if (rota.startsWith('/api/')) return json(res, 401, { erro: 'login' });
       res.writeHead(302, { Location: '/login.html' });
@@ -2647,6 +2840,17 @@ const servidor = http.createServer(async (req, res) => {
     if (rota === '/api/relatorios' && req.method === 'GET') return json(res, 200, relatorios.filter(r => !r.emRevisao));
     if (rota === '/api/painel' && req.method === 'GET') return json(res, 200, await dadosDoPainel());
     if (rota === '/api/rotinas/resumo/rodar' && req.method === 'POST') { const r = await resumoDaManha('painel'); return json(res, 200, r); }
+    if (rota === '/api/convites' && req.method === 'POST') {
+      let d; try { d = JSON.parse(await lerCorpo(req, 16 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
+      const r = criarConvite(d); return json(res, r.erro ? 400 : 200, r);
+    }
+    const cvr = rota.match(/^\/api\/convites\/([0-9a-f]{12})\/(cancelar|permissao|renovar|novo-link|apagar)$/);
+    if (cvr && req.method === 'POST') {
+      let d; try { d = JSON.parse(await lerCorpo(req, 16 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
+      const r = acaoConvite(cvr[1], cvr[2], d); return json(res, r.erro ? 400 : 200, r);
+    }
+    const cvp = rota.match(/^\/api\/convites\/([0-9a-f]{12})\/pedidos\/([0-9a-f]{12})\/(aprovar|recusar)$/);
+    if (cvp && req.method === 'POST') { const r = await decidirPedidoConvidado(cvp[1], cvp[2], cvp[3] === 'aprovar', ipDe(req)); return json(res, r.erro ? 400 : 200, r); }
     if (rota === '/api/reunioes' && req.method === 'POST') {
       let d; try { d = JSON.parse(await lerCorpo(req, 64 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
       const r = await chamarReuniao(d); return json(res, r.erro ? 400 : 200, r);

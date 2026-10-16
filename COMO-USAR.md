@@ -138,7 +138,32 @@ Os agentes **não conseguem** publicar sozinhos: um gancho bloqueia `git push`, 
 
 Mudou alguma tela? O agente pode subir uma **prévia** (`escritorio-previa`) com um link para você ver antes.
 
-## 9. Rotinas automáticas
+## 9. Convidar um amigo para um projeto
+
+Em **Ajustes → Convidados**, escolha o nome do amigo, **um** projeto, por quanto tempo vale o acesso e o que ele pode fazer:
+
+| Permissão | O que acontece |
+| --- | --- |
+| Só ver | ele acompanha os agentes daquele projeto, sem mandar nada |
+| Pede e eu aprovo | os pedidos dele chegam para você (barra de cima e Ajustes → Convidados) e só rodam depois que você aprova |
+| Manda direto | as tarefas dele rodam na hora |
+
+Aperte **Gerar link** e mande para ele. Dá para trocar a permissão, renovar, gerar outro link ou **cancelar** a qualquer
+momento (o link para de funcionar na hora).
+
+O que o convidado vê: uma página só dele, com os agentes daquele projeto e as conversas que **ele** começou.
+As tarefas de convidado rodam **trancadas na pasta do projeto**: outros projetos, as conversas do escritório, senhas,
+chaves SSH, backups, o histórico do Claude e o Docker ficam invisíveis, e publicar em produção continua bloqueado.
+
+Fique atento a três coisas:
+- as tarefas dele usam a **sua** assinatura do Claude;
+- o agente dele precisa ler o login do Claude para funcionar, então dê "Manda direto" só para quem você confia;
+- os nomes das pastas dos outros projetos aparecem (vazias), mas o conteúdo não.
+
+Para ele abrir o link, ele precisa alcançar o escritório: compartilhe a máquina com ele no Tailscale
+(painel do Tailscale → Machines → a máquina → Share).
+
+## 10. Rotinas automáticas
 
 Configure horários em `rotinas` no `config.json`:
 
@@ -150,7 +175,7 @@ Configure horários em `rotinas` no `config.json`:
 | Memorando estratégico | dia 1 de cada mês | análise da empresa pelo Estrategista |
 | Melhorias da equipe | toda sexta | especialistas propõem ajustes nos manuais |
 
-## 10. Abrir pelo celular
+## 11. Abrir pelo celular
 
 O escritório só escuta na própria máquina, de propósito. Para abrir de fora com segurança, instale o
 [Tailscale](https://tailscale.com) no servidor e no celular e rode:

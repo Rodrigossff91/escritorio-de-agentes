@@ -744,3 +744,77 @@ details.meta.concluida{opacity:.75}
 .fala{background:var(--superficie);border-radius:12px;padding:8px 12px;font-size:13px}
 .fala-quem{font-weight:600;font-size:12.5px}.fala-quem small{font-weight:400;color:var(--tinta-2)}
 .fala p{margin:3px 0 0;white-space:pre-wrap}
+/* convidados: painel da dona */
+.link-convite{display:flex;flex-direction:column;gap:6px;background:color-mix(in srgb,var(--destaque) 10%,transparent);border:1px solid color-mix(in srgb,var(--destaque) 35%,transparent);border-radius:12px;padding:12px;margin:8px 0}
+.link-convite input{font:13px ui-monospace,SFMono-Regular,Menlo,monospace}
+.link-convite small{color:var(--sutil);font-size:12px}
+.form-convite{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 12px}
+.form-convite label{display:flex;flex-direction:column;gap:3px;font-size:12.5px;color:var(--sutil);min-width:0}
+.form-convite select,.form-convite input{font:inherit;font-size:13.5px;color:var(--texto);background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:7px 9px;width:100%}
+.form-convite .botoes,.form-convite .erro{grid-column:1/-1}
+@media (max-width:560px){.form-convite{grid-template-columns:minmax(0,1fr)}}
+.linha-item.apagado{opacity:.6}
+.linha-item select{font:inherit;font-size:12.5px;color:var(--texto);background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:4px 6px}
+/* página do convidado */
+.pagina-convidado{height:100%;display:grid;grid-template-rows:auto minmax(0,1fr);background:var(--fundo);color:var(--texto)}
+.cv-topo{display:flex;align-items:center;gap:12px;padding:12px 18px;background:var(--cartao);border-bottom:1px solid var(--borda);flex-wrap:wrap}
+.cv-cor{width:12px;height:36px;border-radius:4px;flex:none}
+.cv-titulo{display:flex;flex-direction:column;margin-right:auto;min-width:0}
+.cv-titulo b{font-size:18px;font-weight:650}
+.cv-titulo small{color:var(--sutil);font-size:12.5px}
+.cv-permissao{font-size:12px;font-weight:600;padding:4px 10px;border-radius:99px;background:var(--fundo);color:var(--sutil)}
+.cv-permissao.direto{background:color-mix(in srgb,var(--destaque) 14%,transparent);color:var(--destaque)}
+.cv-permissao.aprovar{background:color-mix(in srgb,var(--aviso) 16%,transparent);color:var(--aviso)}
+.cv-corpo{display:grid;grid-template-columns:minmax(0,280px) minmax(0,1fr);min-height:0}
+.cv-sala{border-right:1px solid var(--borda);padding:16px;overflow:auto;background:var(--cartao)}
+.cv-sala h2{margin:0 0 10px;font-size:13px;font-weight:600;color:var(--sutil);text-transform:uppercase;letter-spacing:.06em}
+.cv-sala ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.cv-sala li{display:flex;gap:10px;align-items:flex-start;font-size:13.5px}
+.cv-sala li.meu b{color:var(--destaque)}
+.cv-sala li div{display:flex;flex-direction:column;min-width:0}
+.cv-sala li small{color:var(--sutil);font-size:12px;overflow-wrap:anywhere}
+.cv-sala li small.acao{color:var(--texto)}
+.cv-sala .st{width:9px;height:9px;border-radius:50%;background:var(--sutil);margin-top:6px;flex:none}
+.cv-sala .st.trabalhando{background:#1D9E75}.cv-sala .st.esperando{background:#EF9F27}
+.cv-sala .vazio{color:var(--sutil)}
+.cv-nota{color:var(--sutil);font-size:12px;margin-top:16px}
+.cv-chat{display:flex;flex-direction:column;min-height:0}
+.cv-mensagens{flex:1;overflow:auto;padding:22px max(18px,calc((100% - 760px)/2));display:flex;flex-direction:column;gap:12px}
+.cv-mensagens .msg{display:flex;flex-direction:column;max-width:min(640px,88%)}
+.cv-mensagens .msg.voce{align-self:flex-end;align-items:flex-end}
+.cv-mensagens .msg.agente{align-self:flex-start}
+.cv-mensagens .bolha{padding:11px 14px;border-radius:16px;font-size:14.5px;line-height:1.55;overflow-wrap:anywhere}
+.cv-mensagens .msg.voce .bolha{background:var(--destaque);color:#fff;border-bottom-right-radius:5px;white-space:pre-wrap}
+.cv-mensagens .msg.agente .bolha{background:var(--cartao);border:1px solid var(--borda);border-top-left-radius:5px}
+.cv-mensagens .msg small{font-size:11.5px;color:var(--sutil);margin:3px 6px 0}
+.cv-mensagens .msg.sistema{align-self:center;font-size:12.5px;color:var(--sutil);background:var(--cartao);border:1px dashed var(--borda);border-radius:99px;padding:4px 12px}
+.cv-mensagens .msg.sistema.recusado{color:var(--perigo)}
+.cv-mensagens .tit{display:block;font-size:15.5px;font-weight:650;margin-bottom:4px}
+.cv-mensagens .bolha p{margin:4px 0}
+.cv-mensagens .res{background:color-mix(in srgb,#1D9E75 12%,transparent);border-radius:10px;padding:6px 10px}
+.cv-mensagens .res.atencao{background:color-mix(in srgb,#EF9F27 14%,transparent)}.cv-mensagens .res.problema{background:color-mix(in srgb,#E24B4A 12%,transparent)}
+.cv-mensagens .secao{margin-top:8px}.cv-mensagens .secao .rot{font-size:11.5px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;color:var(--sutil)}
+.cv-mensagens .secao ul{margin:2px 0 0;padding-left:18px}
+.cv-mensagens .pergunta{margin-top:10px;background:color-mix(in srgb,#EF9F27 14%,transparent);border-left:4px solid #EF9F27;border-radius:10px;padding:8px 12px}
+.cv-mensagens .pergunta b{font-size:11.5px;text-transform:uppercase;letter-spacing:.06em;color:#B5650D}
+.cv-responder{margin-top:10px;font-size:12.5px;border-radius:99px;padding:4px 12px}
+.cv-mensagens .digitando{color:var(--sutil);display:flex;align-items:center;gap:8px}
+.cv-vazio{margin:auto;text-align:center;max-width:440px;color:var(--sutil)}
+.cv-vazio b{color:var(--texto);font-size:17px}
+.cv-escrever{margin:0 max(14px,calc((100% - 780px)/2)) 14px;background:var(--cartao);border:1px solid var(--borda);border-radius:18px;padding:10px 10px 8px 14px;display:flex;flex-direction:column;gap:6px}
+.cv-escrever[hidden]{display:none}
+.cv-escrever textarea{border:0;background:none;resize:none;font:inherit;font-size:15px;color:var(--texto);outline:0;max-height:220px}
+.cv-botoes{display:flex;gap:6px;align-items:center}
+.cv-botoes small{flex:1;color:var(--sutil);font-size:12px}
+.cv-botoes button{border-radius:99px;padding:7px 14px}
+.cv-botoes .principal{background:var(--destaque);color:#fff;border:0;font-weight:600}
+.cv-respondendo{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--destaque)}
+.cv-respondendo[hidden]{display:none}
+.cv-respondendo button{font-size:12px;padding:2px 10px;border-radius:99px}
+@media (max-width:720px){.cv-corpo{grid-template-columns:minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}.cv-sala{border-right:0;border-bottom:1px solid var(--borda);max-height:30vh}}
+.cv-mensagens .pontos{display:inline-flex;gap:3px}.cv-mensagens .pontos i{width:6px;height:6px;border-radius:50%;background:var(--sutil);animation:pulo 1.2s infinite ease-in-out}.cv-mensagens .pontos i:nth-child(2){animation-delay:.15s}.cv-mensagens .pontos i:nth-child(3){animation-delay:.3s}
+.linha-convite{display:flex;flex-direction:column;gap:8px;padding:10px 0;border-bottom:1px solid var(--borda)}
+.linha-convite .txt small{display:block;color:var(--sutil);font-size:12.5px}
+.linha-convite.apagado{opacity:.6}
+.acoes-convite{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.acoes-convite select{font:inherit;font-size:13px;color:var(--texto);background:var(--fundo);border:1px solid var(--borda);border-radius:8px;padding:5px 8px}

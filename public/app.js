@@ -1348,6 +1348,9 @@ function aplicar(estado) {
   const melh = (estado.aprendizado?.propostas || []).filter(x => x.status === 'aguardando').length;
   $('melhorias').hidden = !melh;
   $('melhorias').textContent = melh === 1 ? '1 melhoria para aprovar' : `${melh} melhorias para aprovar`;
+  const pc = (estado.convites || []).reduce((n, c) => n + (c.pendentes || []).filter(p => p.status === 'aguardando').length, 0);
+  $('pedConvidados').hidden = !pc;
+  $('pedConvidados').textContent = pc === 1 ? '1 pedido de convidado' : `${pc} pedidos de convidado`;
   const pubs = (estado.deploys || []).filter(d => d.status === 'aguardando').length;
   $('publicacoes').hidden = !pubs;
   $('publicacoes').textContent = pubs === 1 ? '1 publicação esperando você' : `${pubs} publicações esperando você`;
@@ -1816,6 +1819,29 @@ function desenharExtra() {
         <button data-agenda-alternar="${esc(a.id)}">${a.ativo ? 'Pausar' : 'Ativar'}</button><button data-agenda-apagar="${esc(a.id)}">Apagar</button></div>`).join('')
         : '<div class="vazio">Nada agendado ainda.</div>') +
       `<div class="botoes"><button class="principal" data-acao="nova-agendada">Agendar tarefa</button></div>` + rotinasHTML();
+  } else if (extraAberto === 'convidados') {
+    const cs = ultimo.convites || [], pend = cs.flatMap(c => (c.pendentes || []).filter(p => p.status === 'aguardando').map(p => ({ ...p, c })));
+    const projetosC = (ultimo.setores || []).filter(x => !['geral', 'escritorio'].includes(x.id));
+    const rotP = { ver: 'Só ver', aprovar: 'Pede e eu aprovo', direto: 'Manda direto' };
+    const validade = c => !c.ativo ? 'cancelado' : !c.ativoAgora ? 'expirado' : c.expira ? 'vale até ' + new Date(c.expira).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }) : 'sem prazo';
+    el.innerHTML = cabecalhoExtra('Convidados') +
+      `<p class="nota">Gere um link para um amigo trabalhar em <b>um</b> projeto. Ele vê só a sala desse projeto e só as conversas dele. As tarefas dele rodam trancadas na pasta do projeto: outros projetos, o cofre, chaves, backups e o Docker ficam invisíveis, e ele nunca publica em produção. Para ele abrir o link, compartilhe esta máquina com ele no Tailscale (painel do Tailscale → Machines → esta máquina → Share).</p>
+      ${linkConvite ? `<div class="link-convite"><b>Link para ${esc(linkConvite.nome)}</b><input readonly value="${esc(linkConvite.link)}" id="linkConviteCampo"><div class="botoes"><button class="principal" data-copiar-convite>Copiar link</button><button data-fechar-link>Pronto</button></div><small>Guarde agora: por segurança, o link não aparece de novo (dá para gerar outro).</small></div>` : ''}
+      ${pend.length ? `<h3>Pedidos esperando você</h3>${pend.map(p => `<div class="linha-item"><div class="txt"><b style="font-weight:500">${esc(p.c.nome)}</b> · ${esc(p.c.projeto)} · ${p.modo === 'conversa' ? 'conversar' : 'executar'}<small>${esc(p.pedido)}</small></div>
+        <button class="principal" data-pedido-aprovar="${esc(p.c.id)}:${esc(p.id)}">Aprovar</button><button data-pedido-recusar="${esc(p.c.id)}:${esc(p.id)}">Recusar</button></div>`).join('')}` : ''}
+      <h3>Novo convite</h3>
+      <form class="form-convite" id="formConvite"><label>Nome do amigo<input name="nome" maxlength="60" required placeholder="Ex.: Lucas"></label>
+        <label>Projeto<select name="setor">${projetosC.map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select></label>
+        <label>Pode<select name="permissao"><option value="aprovar">Pedir, e eu aprovo antes de rodar</option><option value="ver">Só ver</option><option value="direto">Mandar direto (roda na hora)</option></select></label>
+        <label>Usa a conta do Claude<select name="conta">${(ultimo.contas || ['pessoal']).map(x => `<option>${esc(x)}</option>`).join('')}</select></label>
+        <label>Vale por<select name="dias"><option value="7">7 dias</option><option value="1">24 horas</option><option value="30">30 dias</option><option value="0">até eu cancelar</option></select></label>
+        <div class="botoes"><button class="principal" type="submit">Gerar link</button></div><div class="erro" role="alert"></div></form>
+      <h3>Convites</h3>
+      ${cs.length ? cs.map(c => `<div class="linha-convite${c.ativoAgora ? '' : ' apagado'}"><div class="txt"><b style="font-weight:500">${esc(c.nome)}</b> · ${esc(c.projeto)} · ${esc(validade(c))}
+          <small>${c.ultimoAcesso ? 'último acesso ' + esc(new Date(c.ultimoAcesso).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })) : 'ainda não abriu o link'} · ${(c.ordens || []).length} tarefa(s) · conta ${esc(c.conta)}</small></div>
+        <div class="acoes-convite">${c.ativoAgora ? `<select data-convite-permissao="${esc(c.id)}" aria-label="Permissão de ${esc(c.nome)}">${['ver', 'aprovar', 'direto'].map(k => `<option value="${k}" ${c.permissao === k ? 'selected' : ''}>${rotP[k]}</option>`).join('')}</select>
+          <button data-convite-acao="${esc(c.id)}:novo-link">Novo link</button><button data-convite-acao="${esc(c.id)}:renovar">+7 dias</button><button data-convite-acao="${esc(c.id)}:cancelar">Cancelar acesso</button>`
+          : `<button data-convite-acao="${esc(c.id)}:renovar">Reativar 7 dias</button><button data-convite-acao="${esc(c.id)}:apagar">Apagar</button>`}</div></div>`).join('') : '<div class="vazio">Nenhum convite ainda.</div>'}`;
   } else if (extraAberto === 'aprendizado') {
     const ap = ultimo.aprendizado || { pendentes: {}, propostas: [] };
     const pend = Object.entries(ap.pendentes || {});
@@ -1970,6 +1996,50 @@ $('bConsumo').onclick = () => abrirExtra('consumo');
 $('bTelegram').onclick = () => abrirExtra('telegram');
 $('bSala').onclick = () => abrirExtra('sala');
 $('bAprendizado').onclick = () => abrirExtra('aprendizado');
+$('bConvidados').onclick = () => abrirExtra('convidados');
+$('pedConvidados').onclick = () => abrirExtra('convidados');
+let linkConvite = null;
+$('extra').addEventListener('submit', async e => {
+  const f = e.target.closest('#formConvite');
+  if (!f) return;
+  e.preventDefault();
+  const d = Object.fromEntries(new FormData(f));
+  if (d.permissao === 'direto' && !confirm('Mandar direto: as tarefas dele rodam na hora, com a sua assinatura do Claude, trancadas na pasta do projeto. Confirmar?')) return;
+  const r = await postar('/api/convites', d), j = await r.json().catch(() => ({}));
+  if (!r.ok) { f.querySelector('.erro').textContent = j.erro || 'Não deu para criar.'; return; }
+  linkConvite = { nome: d.nome, link: j.link }; desenharExtra();
+});
+$('extra').addEventListener('change', async e => {
+  const s = e.target.closest('[data-convite-permissao]');
+  if (!s) return;
+  if (s.value === 'direto' && !confirm('Mandar direto: as tarefas dele rodam na hora, sem você aprovar. Confirmar?')) { desenharExtra(); return; }
+  await postar(`/api/convites/${s.dataset.convitePermissao}/permissao`, { permissao: s.value });
+  aviso('Permissão trocada. Vale a partir do próximo pedido dele.');
+});
+$('extra').addEventListener('click', async e => {
+  if (e.target.closest('[data-copiar-convite]')) {
+    const campo = $('linkConviteCampo');
+    try { await navigator.clipboard.writeText(campo.value); aviso('Link copiado.'); } catch { campo.select(); aviso('Selecionei o link: copie com Ctrl+C.'); }
+    return;
+  }
+  if (e.target.closest('[data-fechar-link]')) { linkConvite = null; desenharExtra(); return; }
+  const ac = e.target.closest('[data-convite-acao]');
+  if (ac) {
+    const [id, acao] = ac.dataset.conviteAcao.split(':');
+    if (['cancelar', 'apagar'].includes(acao) && !confirm(acao === 'cancelar' ? 'Cancelar o acesso agora? O link para de funcionar na hora.' : 'Apagar este convite?')) return;
+    const r = await postar(`/api/convites/${id}/${acao}`, { dias: 7 }), j = await r.json().catch(() => ({}));
+    if (!r.ok) return aviso(j.erro || 'Não deu.');
+    if (j.link) { const c = (ultimo.convites || []).find(x => x.id === id); linkConvite = { nome: c?.nome || 'convidado', link: j.link }; desenharExtra(); }
+    return;
+  }
+  const pa = e.target.closest('[data-pedido-aprovar],[data-pedido-recusar]');
+  if (pa) {
+    const aprovar = !!pa.dataset.pedidoAprovar, [id, pid] = (pa.dataset.pedidoAprovar || pa.dataset.pedidoRecusar).split(':');
+    pa.disabled = true;
+    const r = await postar(`/api/convites/${id}/pedidos/${pid}/${aprovar ? 'aprovar' : 'recusar'}`), j = await r.json().catch(() => ({}));
+    aviso(r.ok ? (aprovar ? 'Aprovado: a equipe vai começar.' : 'Pedido recusado.') : (j.erro || 'Não deu.'));
+  }
+});
 $('melhorias').onclick = () => abrirExtra('aprendizado');
 $('bAjustes').onclick = e => { e.stopPropagation(); $('ajustes').hidden = !$('ajustes').hidden; };
 addEventListener('click', e => { if (!$('ajustes').hidden && !e.target.closest('#ajustes, #bAjustes')) $('ajustes').hidden = true; });

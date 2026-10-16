@@ -29,6 +29,7 @@ acompanha tudo num painel e aprova o que vai para produção com um botão.
   **Publicar**; o DevOps confere tudo antes. Mudanças de tela podem ganhar um link de prévia antes.
 - **Histórico de publicações** (Coolify, pacotes dos apps, trocas de versão dos containers) com pedido de volta de versão.
 - **Rotinas:** ronda diária da produção, vigia de containers e disco, resumo da manhã, memorando estratégico mensal.
+- **Convidados:** gere um link para um amigo trabalhar em um projeto, com a permissão que você escolher (só ver, pede e você aprova, ou manda direto). As tarefas dele rodam trancadas na pasta do projeto.
 - **Busca geral** (**Ctrl+K**): procura em tudo e manda pedidos, ex.: `devops ver o certificado do site`.
 
 ## Do que precisa

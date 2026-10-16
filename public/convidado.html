@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Escritório · convidado</title>
+  <link rel="icon" href="/favicon.svg">
+  <link rel="stylesheet" href="/estilo.css">
+</head>
+<body class="pagina-convidado">
+  <header class="cv-topo">
+    <i class="cv-cor" id="cvCor"></i>
+    <div class="cv-titulo"><b id="cvProjeto">Carregando…</b><small id="cvSub"></small></div>
+    <span class="cv-permissao" id="cvPermissao"></span>
+    <button id="cvSair">Sair</button>
+  </header>
+  <main class="cv-corpo">
+    <aside class="cv-sala">
+      <h2>Na sala agora</h2>
+      <ul id="cvAgentes"><li class="vazio">Ninguém trabalhando agora.</li></ul>
+      <p class="cv-nota">Você vê os agentes deste projeto. As conversas que aparecem ao lado são só as suas.</p>
+    </aside>
+    <section class="cv-chat">
+      <div class="cv-mensagens" id="cvMensagens"></div>
+      <form class="cv-escrever" id="cvForm" hidden>
+        <div class="cv-respondendo" id="cvRespondendo" hidden><span></span><button type="button" id="cvNovaConversa">Começar conversa nova</button></div>
+        <textarea id="cvTexto" rows="1" maxlength="6000" placeholder="Escreva o que você precisa neste projeto…" aria-label="Pedido"></textarea>
+        <div class="cv-botoes"><small id="cvDica"></small>
+          <button type="submit" value="conversa" title="Ele só lê e responde, sem mexer em nada">Conversar</button>
+          <button type="submit" value="executar" class="principal" title="Ele vai até o projeto e faz">Executar</button></div>
+        <div class="erro" id="cvErro" role="alert"></div>
+      </form>
+    </section>
+  </main>
+  <script src="/convidado.js"></script>
+</body>
+</html>
