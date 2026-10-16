@@ -254,6 +254,59 @@
       "cor": "#888780",
       "instrucao": "Atue como especialista em documentação técnica: README, guias de instalação, arquitetura e comentários corretos.",
       "arquivos": "\\.(md|rst)$|/docs?/"
+    },
+    {
+      "id": "rh",
+      "nome": "RH (Pessoas)",
+      "cor": "#993556",
+      "instrucao": "Atue como RH do time de especialistas: propostas de contratação, treinamento e desligamento de agentes."
+    },
+    {
+      "id": "vendas",
+      "nome": "Vendas e comercial",
+      "cor": "#BA7517",
+      "instrucao": "Atue como especialista comercial: propostas, precificação, roteiro de demonstração, prospecção e follow-up.",
+      "arquivos": "propostas?|comercial|precos?|pricing|vendas"
+    },
+    {
+      "id": "inovacao",
+      "nome": "Inovação (P&D)",
+      "cor": "#534AB7",
+      "instrucao": "Atue como P&D: estudos de novas áreas e mercados com nota de chance, protótipos rápidos e radar de tecnologia.",
+      "arquivos": "estudos?|pesquisa|research|oportunidades?"
+    },
+    {
+      "id": "parcerias",
+      "nome": "Parcerias e captação",
+      "cor": "#0C447C",
+      "instrucao": "Atue como parcerias e captação: editais, aceleradoras, programas de startups e parceiros.",
+      "arquivos": "editais?|parcerias?|captacao"
+    },
+    {
+      "id": "financeiro",
+      "nome": "Financeiro",
+      "cor": "#3B6D11",
+      "instrucao": "Atue como financeiro: custos de cada projeto, rateio da assinatura e do servidor, serviços pagos, margem e projeção.",
+      "arquivos": "financeiro|custos?|orcamento|budget"
+    },
+    {
+      "id": "juridico",
+      "nome": "Jurídico e LGPD",
+      "cor": "#444441",
+      "instrucao": "Atue como jurídico: termos de uso, política de privacidade, LGPD e contratos modelo (sem substituir advogado).",
+      "arquivos": "termos|privacidade|privacy|lgpd|contratos?|legal"
+    },
+    {
+      "id": "academia",
+      "nome": "Academia (estudos)",
+      "cor": "#7F77DD",
+      "instrucao": "Atue como mentor de estudos: plano de estudos a partir do que foi feito, desafios práticos e diário de aprendizado."
+    },
+    {
+      "id": "comunidade",
+      "nome": "Comunidade e conteúdo técnico",
+      "cor": "#D4537E",
+      "instrucao": "Atue como DevRel: posts técnicos, README e guias do repositório público, sem expor dados privados."
     }
   ],
   "origensPermitidas": [],
@@ -341,5 +394,267 @@
     "pessoal": ""
   },
   "pastasBackup": [],
-  "backupEscritorio": ""
+  "backupEscritorio": "",
+  "departamentos": [
+    {
+      "id": "rh",
+      "nome": "RH",
+      "cor": "#993556",
+      "membros": [
+        "rh"
+      ],
+      "lider": "rh",
+      "responsabilidades": [
+        "Propõe contratar especialistas quando falta alguém para um tipo de pedido",
+        "Acompanha o desempenho de cada especialista",
+        "Propõe treinamentos (ajustes de manual) e aposentadorias"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 2,
+        "hora": "10:00"
+      }
+    },
+    {
+      "id": "financeiro",
+      "nome": "Financeiro",
+      "cor": "#3B6D11",
+      "membros": [
+        "financeiro"
+      ],
+      "lider": "financeiro",
+      "responsabilidades": [
+        "Sabe tudo o que cada projeto gasta (assinatura, servidor, custos e serviços pagos)",
+        "Margem e projeção do mês",
+        "Alerta gastos fora do normal e propõe economias"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "semanal",
+        "dia": 5,
+        "hora": "16:00"
+      }
+    },
+    {
+      "id": "marketing",
+      "nome": "Marketing",
+      "cor": "#D85A30",
+      "membros": [
+        "marketing",
+        "conteudo",
+        "seo"
+      ],
+      "lider": "marketing",
+      "responsabilidades": [
+        "Propostas de campanha por produto",
+        "Calendário e textos de conteúdo da semana",
+        "Análise de concorrentes"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "semanal",
+        "dia": 1,
+        "hora": "09:30"
+      },
+      "web": true
+    },
+    {
+      "id": "inovacao",
+      "nome": "Inovação",
+      "cor": "#534AB7",
+      "membros": [
+        "inovacao"
+      ],
+      "lider": "inovacao",
+      "responsabilidades": [
+        "Estuda novas áreas com nota de chance de dar certo",
+        "Ideias de protótipos rápidos",
+        "Radar de tecnologias"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 3,
+        "hora": "10:00"
+      },
+      "web": true
+    },
+    {
+      "id": "vendas",
+      "nome": "Vendas",
+      "cor": "#BA7517",
+      "membros": [
+        "vendas"
+      ],
+      "lider": "vendas",
+      "responsabilidades": [
+        "Propostas comerciais e preço",
+        "Roteiro de demonstração",
+        "Prospecção e follow-up"
+      ]
+    },
+    {
+      "id": "parcerias",
+      "nome": "Parcerias e captação",
+      "cor": "#0C447C",
+      "membros": [
+        "parcerias"
+      ],
+      "lider": "parcerias",
+      "responsabilidades": [
+        "Editais, aceleradoras e programas de startups",
+        "Possíveis parceiros para os produtos"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 10,
+        "hora": "10:00"
+      },
+      "web": true
+    },
+    {
+      "id": "produto",
+      "nome": "Produto",
+      "cor": "#185FA5",
+      "membros": [
+        "produto"
+      ],
+      "lider": "produto",
+      "responsabilidades": [
+        "Roadmap único de todos os produtos",
+        "Prioridades do mês junto com os POs"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 1,
+        "hora": "11:00"
+      }
+    },
+    {
+      "id": "juridico",
+      "nome": "Jurídico e LGPD",
+      "cor": "#444441",
+      "membros": [
+        "juridico"
+      ],
+      "lider": "juridico",
+      "responsabilidades": [
+        "Termos de uso e política de privacidade",
+        "Checklist de LGPD por produto",
+        "Contratos modelo"
+      ]
+    },
+    {
+      "id": "seguranca",
+      "nome": "Segurança",
+      "cor": "#A32D2D",
+      "membros": [
+        "seguranca"
+      ],
+      "lider": "seguranca",
+      "responsabilidades": [
+        "Auditoria mensal de segredos e rotas sem proteção",
+        "Riscos de LGPD no código"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 15,
+        "hora": "10:00"
+      }
+    },
+    {
+      "id": "suporte",
+      "nome": "Suporte",
+      "cor": "#0F6E56",
+      "membros": [
+        "suporte"
+      ],
+      "lider": "suporte",
+      "responsabilidades": [
+        "FAQ e respostas prontas",
+        "Base de conhecimento por produto"
+      ]
+    },
+    {
+      "id": "dados",
+      "nome": "Dados e BI",
+      "cor": "#1D9E75",
+      "membros": [
+        "dados"
+      ],
+      "lider": "dados",
+      "responsabilidades": [
+        "Métricas de uso dos produtos",
+        "Relatórios e painéis de números"
+      ]
+    },
+    {
+      "id": "qualidade",
+      "nome": "Qualidade",
+      "cor": "#2C7A7B",
+      "membros": [
+        "testes"
+      ],
+      "lider": "testes",
+      "responsabilidades": [
+        "Revisa as entregas antes de chegarem a você",
+        "Auditorias de testes"
+      ]
+    },
+    {
+      "id": "documentacao",
+      "nome": "Documentação",
+      "cor": "#5F5E5A",
+      "membros": [
+        "docs"
+      ],
+      "lider": "docs",
+      "responsabilidades": [
+        "Manuais, READMEs e guias de cada projeto"
+      ]
+    },
+    {
+      "id": "academia",
+      "nome": "Academia",
+      "cor": "#7F77DD",
+      "membros": [
+        "academia"
+      ],
+      "lider": "academia",
+      "responsabilidades": [
+        "Plano de estudos a partir do que foi feito na semana",
+        "Desafios práticos e diário de aprendizado"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "semanal",
+        "dia": 0,
+        "hora": "18:00"
+      },
+      "web": true
+    },
+    {
+      "id": "comunidade",
+      "nome": "Comunidade",
+      "cor": "#D4537E",
+      "membros": [
+        "comunidade"
+      ],
+      "lider": "comunidade",
+      "responsabilidades": [
+        "Ideias de posts técnicos a partir do que foi construído",
+        "Cuida do repositório público"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "semanal",
+        "dia": 4,
+        "hora": "17:00"
+      }
+    }
+  ]
 }

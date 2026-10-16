@@ -99,6 +99,8 @@ function gravarJSON(arq, dados, espaco) {
 
 const servidoresDeProducao = () => (config.servidores || []).filter(g => (g.tipo || 'producao') === 'producao').map(g => g.nome).slice(0, 4).join(', ');
 
+// setores com as pastas (listaSetores() devolve só id, nome e cor para a tela)
+const setoresComPastas = () => config.setores || [];
 function listaSetores() {
   return [...config.setores.map(({ id, nome, cor }) => ({ id, nome, cor })), ...setoresDinamicos.values()]
     .filter(s => !config.ocultos.includes(s.id));
@@ -2410,11 +2412,13 @@ async function decidirPedidoConvidado(id, pid, aprovar, ip) {
 }
 // tranca: a tarefa de convidado só enxerga a pasta do projeto (o resto do servidor fica invisível)
 function trancaDoConvidado(o) {
-  const minhas = (listaSetores().find(x => x.id === o.setor)?.pastas || [o.pasta]).map(p => path.resolve(p));
+  const minhas = (setoresComPastas().find(x => x.id === o.setor)?.pastas || [o.pasta]).map(p => path.resolve(p));
   const ehMeuCaminho = p => minhas.some(m => m === p || m.startsWith(p + '/') || p.startsWith(m + '/'));
   const esconder = new Set();
   // pastas de outros projetos
-  for (const st of listaSetores()) for (const p of st.pastas || []) { const r = path.resolve(p); if (!ehMeuCaminho(r)) esconder.add(r); }
+  for (const st of setoresComPastas()) for (const p of st.pastas || []) { const r = path.resolve(p); if (!ehMeuCaminho(r)) esconder.add(r); }
+  // e todas as pastas de nível de cima da casa que não são do projeto (ex.: ~/outro-projeto-prod)
+  try { for (const e of fs.readdirSync(os.homedir(), { withFileTypes: true })) { const q = path.join(os.homedir(), e.name); if (e.isDirectory() && !e.name.startsWith('.') && !ehMeuCaminho(q)) esconder.add(q); } } catch { /* sem acesso */ }
   // vizinhos no caminho até a pasta do projeto (ex.: os outros projetos dentro da raiz)
   for (const m of minhas) {
     let pai = path.dirname(m), filho = m;
@@ -2442,7 +2446,8 @@ function trancaDoConvidado(o) {
   for (const x of [...esconder]) if (x === RAIZ || RAIZ.startsWith(x + '/') || x === path.join(RAIZ, 'hooks') || x === path.join(DADOS, 'hook-token') || x === DADOS) esconder.delete(x);
   if (process.env.ESCRITORIO_DEBUG_TRANCA) console.log('tranca:', [...esconder].join(' '));
   return ['--property=NoNewPrivileges=yes', '--property=PrivateDevices=yes', '--property=ProtectKernelTunables=yes', '--property=ProtectKernelModules=yes', '--property=ProtectControlGroups=yes',
-    ...[...esconder].sort().map(x => `--property=InaccessiblePaths=-${x}`)];
+    // aspas: caminhos com espaço no nome; caminhos com aspas ou quebra de linha são ignorados
+    ...[...esconder].filter(x => !/["\n\\]/.test(x)).sort().map(x => `--property=InaccessiblePaths="-${x}"`)];
 }
 function contextoConvidado(o) {
   const c = convites.find(x => x.id === o.convidado);
@@ -2450,7 +2455,7 @@ function contextoConvidado(o) {
 }
 function limparParaConvidado(texto, setor) {
   const termos = [];
-  for (const st of listaSetores()) if (st.id !== setor && !['geral', 'escritorio'].includes(st.id)) { termos.push(st.id, st.nome); for (const p of st.pastas || []) termos.push(p); }
+  for (const st of setoresComPastas()) if (st.id !== setor && !['geral', 'escritorio'].includes(st.id)) { termos.push(st.id, st.nome); for (const p of st.pastas || []) termos.push(p); }
   termos.push(EMPRESA(), RAIZ_PROJETOS, COFRE);
   const re = new RegExp(termos.filter(t => t && String(t).length >= 3).map(t => String(t).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|'), 'i');
   return String(texto || '').split('\n').filter(l => !re.test(l)).join('\n');
@@ -2484,6 +2489,214 @@ function estadoDoConvidado(c) {
     conversas, andando, pendentes: c.pendentes.filter(p => p.status === 'aguardando' || Date.now() - (p.decidido || 0) < 864e5).map(({ id, pedido, status, criado, sessao }) => ({ id, pedido, status, criado, sessao })),
   };
 }
+
+// ---------- financeiro: tudo o que cada projeto gasta ----------
+// custos cadastrados pela dona + rateio da assinatura do Claude (pelo uso) e do servidor (pela memória e disco)
+// + serviços pagos que cada projeto usa (lidos do package.json e .env.example, nunca do .env de verdade)
+const ARQ_FINANCEIRO = path.join(DADOS, 'financeiro.json');
+let financeiro = { custos: [] };
+try { financeiro = { custos: [], ...JSON.parse(fs.readFileSync(ARQ_FINANCEIRO, 'utf8')) }; } catch { /* começa vazio */ }
+const gravarFinanceiro = () => gravarJSON(ARQ_FINANCEIRO, financeiro);
+const CATEGORIAS = ['claude', 'servidor', 'dominio', 'loja', 'api', 'servico', 'outro'];
+function salvarCusto(d) {
+  const nome = String(d.nome || '').trim().slice(0, 80), valor = Number(String(d.valor || '').replace(',', '.'));
+  if (nome.length < 2) return { erro: 'Dê um nome ao custo.' };
+  if (!(valor >= 0) || valor > 1e7) return { erro: 'Valor inválido.' };
+  const setor = d.setor === 'geral' || listaSetores().some(x => x.id === d.setor) ? d.setor : 'geral';
+  const recorrencia = ['mensal', 'anual', 'unico'].includes(d.recorrencia) ? d.recorrencia : 'mensal';
+  const categoria = CATEGORIAS.includes(d.categoria) ? d.categoria : 'outro';
+  financeiro.custos.push({ id: novoId(), nome, valor, recorrencia, categoria, setor, criado: Date.now() });
+  gravarFinanceiro(); avisar(); cacheFinanceiro.em = 0;
+  return { ok: true };
+}
+const SERVICOS_PAGOS = [
+  [/^stripe$|@stripe\//, 'Stripe (pagamentos)'], [/mercadopago|mercado-pago/, 'Mercado Pago'], [/^openai$|OPENAI_/, 'OpenAI (API)'], [/@anthropic-ai\/sdk|ANTHROPIC_API/, 'Anthropic (API)'],
+  [/@google\/generative-ai|@google\/genai|GEMINI_/, 'Google Gemini (API)'], [/@sentry\//, 'Sentry'], [/^firebase|firebase_|FIREBASE_/, 'Firebase'], [/^twilio$/, 'Twilio'],
+  [/@sendgrid|SENDGRID_/, 'SendGrid'], [/^resend$|RESEND_/, 'Resend (e-mail)'], [/@aws-sdk|^aws-sdk$|AWS_/, 'AWS'], [/@google-cloud/, 'Google Cloud'], [/onesignal/i, 'OneSignal'],
+  [/^pusher|PUSHER_/, 'Pusher'], [/algolia/i, 'Algolia'], [/mapbox|GOOGLE_MAPS/i, 'Mapas (Mapbox/Google)'], [/@supabase|SUPABASE_/, 'Supabase'], [/^@vercel|VERCEL_/, 'Vercel'],
+  [/EVOLUTION_|evolution-api/, 'Evolution API (WhatsApp)'], [/^@linear|LINEAR_/, 'Linear'], [/cloudinary/i, 'Cloudinary'], [/^@prisma\/accelerate/, 'Prisma Accelerate'],
+];
+function servicosDoProjeto(pastas) {
+  const achados = new Set(), arquivos = [];
+  const varrer = (dir, nivel) => {
+    if (nivel > 3) return;
+    let es = []; try { es = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+    for (const e of es) {
+      if (['node_modules', '.git', 'dist', 'build', '.next', 'vendor', '.dart_tool'].includes(e.name)) continue;
+      const q = path.join(dir, e.name);
+      if (e.isDirectory()) varrer(q, nivel + 1);
+      else if (e.name === 'package.json' || e.name === 'pubspec.yaml' || /^\.env\.(example|sample|exemplo)$/.test(e.name)) arquivos.push(q);
+    }
+  };
+  for (const p of pastas || []) varrer(p, 0);
+  for (const a of arquivos.slice(0, 60)) {
+    let txt = ''; try { txt = fs.readFileSync(a, 'utf8'); } catch { continue; }
+    let chaves = [];
+    if (a.endsWith('package.json')) { try { const j = JSON.parse(txt); chaves = Object.keys({ ...(j.dependencies || {}), ...(j.devDependencies || {}) }); } catch { /* ignora */ } }
+    else if (a.endsWith('pubspec.yaml')) chaves = (txt.match(/^\s{2}([a-z0-9_]+):/gm) || []).map(x => x.trim().replace(':', ''));
+    else chaves = (txt.match(/^[A-Z][A-Z0-9_]+(?==)/gm) || []); // só os NOMES das variáveis do exemplo
+    for (const k of chaves) for (const [re, nome] of SERVICOS_PAGOS) if (re.test(k)) achados.add(nome);
+  }
+  return [...achados].sort();
+}
+let cacheFinanceiro = { em: 0, dados: null }, cacheDisco = { em: 0, porSetor: {} }, cacheServicos = { em: 0, porSetor: {} };
+async function dadosFinanceiros() {
+  if (Date.now() - cacheFinanceiro.em < 5 * 60_000 && cacheFinanceiro.dados) return cacheFinanceiro.dados;
+  const agora = Date.now(), visiveis = new Set(listaSetores().map(x => x.id)), setores = setoresComPastas().filter(x => visiveis.has(x.id) && x.id !== 'escritorio');
+  const mensal = c => c.recorrencia === 'anual' ? c.valor / 12 : c.recorrencia === 'unico' ? 0 : c.valor;
+  // uso do Claude nos últimos 30 dias, por projeto (tokens) — base do rateio da assinatura
+  const tokens = {}, usd = {};
+  for (const r of relatorios) if (agora - r.fim < 30 * 864e5 && !r.emRevisao && !r.projetoFinal) {
+    const t = (r.tokens?.entrada || 0) + (r.tokens?.saida || 0) + (r.tokens?.cache || 0) / 10;
+    tokens[r.setor] = (tokens[r.setor] || 0) + t; usd[r.setor] = (usd[r.setor] || 0) + (r.custoUSD || 0);
+  }
+  const totTokens = Object.values(tokens).reduce((a, b) => a + b, 0) || 1;
+  // memória por projeto (containers agrupados pelo datacenter)
+  const mem = {};
+  const st = await rodar('docker', ['stats', '--no-stream', '--format', '{{.Name}}|{{.MemUsage}}'], null, 30_000);
+  for (const l of st.saida.split('\n').filter(Boolean)) {
+    const [nome, uso] = l.split('|'), m = String(uso || '').match(/([\d.]+)\s*([KMG]i?B)/i);
+    if (!m) continue;
+    const mb = Number(m[1]) * ({ k: 1 / 1024, m: 1, g: 1024 }[m[2][0].toLowerCase()] || 1);
+    const g = grupoDoContainer(nome); if (g.setor) mem[g.setor] = (mem[g.setor] || 0) + mb;
+  }
+  // disco por projeto (pastas do projeto), medido no máximo 1 vez por dia
+  if (agora - cacheDisco.em > 864e5) {
+    const porSetor = {};
+    for (const x of setores) { let b = 0; for (const p of x.pastas || []) { const r = await rodar('du', ['-sb', '--exclude=node_modules', p], null, 60_000); b += Number((r.saida.split('\t')[0]) || 0); } porSetor[x.id] = Math.round(b / 1048576); }
+    cacheDisco = { em: agora, porSetor };
+  }
+  if (agora - cacheServicos.em > 864e5) { const porSetor = {}; for (const x of setores) porSetor[x.id] = servicosDoProjeto(x.pastas); cacheServicos = { em: agora, porSetor }; }
+  const totMem = Object.values(mem).reduce((a, b) => a + b, 0) || 1, totDisco = Object.values(cacheDisco.porSetor).reduce((a, b) => a + b, 0) || 1;
+  const fixosGerais = financeiro.custos.filter(c => c.setor === 'geral');
+  const assinatura = fixosGerais.filter(c => c.categoria === 'claude').reduce((a, c) => a + mensal(c), 0);
+  const servidor = fixosGerais.filter(c => c.categoria === 'servidor').reduce((a, c) => a + mensal(c), 0);
+  const outrosGerais = fixosGerais.filter(c => !['claude', 'servidor'].includes(c.categoria)).reduce((a, c) => a + mensal(c), 0);
+  const projetos = setores.filter(x => x.id !== 'geral').map(x => {
+    const diretos = financeiro.custos.filter(c => c.setor === x.id).reduce((a, c) => a + mensal(c), 0);
+    const pClaude = (tokens[x.id] || 0) / totTokens, pServ = 0.7 * (mem[x.id] || 0) / totMem + 0.3 * (cacheDisco.porSetor[x.id] || 0) / totDisco;
+    const rClaude = assinatura * pClaude, rServ = servidor * pServ;
+    return { setor: x.id, nome: x.nome, cor: x.cor, diretos, claude: rClaude, servidor: rServ, total: diretos + rClaude + rServ, usoClaude: Math.round(pClaude * 100), memoriaMB: Math.round(mem[x.id] || 0),
+      discoMB: cacheDisco.porSetor[x.id] || 0, equivalenteApiUSD: usd[x.id] || 0, servicos: cacheServicos.porSetor[x.id] || [] };
+  }).sort((a, b) => b.total - a.total);
+  const totalMensal = financeiro.custos.reduce((a, c) => a + mensal(c), 0);
+  const dados = { agora, custos: financeiro.custos, projetos, totalMensal, assinatura, servidor, outrosGerais, cambio: cambio.brl || null,
+    semRateio: Math.max(0, assinatura + servidor - projetos.reduce((a, x) => a + x.claude + x.servidor, 0)) };
+  cacheFinanceiro = { em: Date.now(), dados };
+  return dados;
+}
+
+// ---------- departamentos: áreas da empresa com sala, membros e rotina ----------
+const deps = () => config.departamentos || [];
+let propostasRH = [];
+try { propostasRH = JSON.parse(fs.readFileSync(path.join(DADOS, 'propostas-rh.json'), 'utf8')); } catch { propostasRH = []; }
+const gravarPropostasRH = () => gravarJSON(path.join(DADOS, 'propostas-rh.json'), propostasRH.slice(0, 60));
+function entregasRecentes(dias, setor) {
+  const desde = Date.now() - dias * 864e5;
+  return relatorios.filter(r => r.fim > desde && !r.rotina && !r.emRevisao && (!setor || r.setor === setor))
+    .map(r => `- ${diaDe(r.fim)} · ${nomeSetor(r.setor)} · ${r.agente}${r.especialidade ? ' (' + r.especialidade + ')' : ''}: ${r.simples?.titulo || curto(semQuebra(r.pedido), 100)}`).slice(0, 80).join('\n') || '(nenhuma entrega no período)';
+}
+async function dadosDoDepartamento(dep) {
+  const projetos = listaSetores().filter(x => !['geral', 'escritorio'].includes(x.id)).map(x => `- ${x.nome}`).join('\n');
+  const base = `Projetos da empresa:\n${projetos}`;
+  if (dep.id === 'financeiro') {
+    const f = await dadosFinanceiros();
+    return `${base}\n\nDADOS FINANCEIROS (medidos agora, em R$/mês):\nTotal de custos cadastrados: ${f.totalMensal.toFixed(2)} | assinatura Claude: ${f.assinatura.toFixed(2)} | servidor: ${f.servidor.toFixed(2)} | outros gerais: ${f.outrosGerais.toFixed(2)}\n` +
+      f.projetos.map(x => `- ${x.nome}: total ${x.total.toFixed(2)} (diretos ${x.diretos.toFixed(2)}, parte do Claude ${x.claude.toFixed(2)} = ${x.usoClaude}% do uso, parte do servidor ${x.servidor.toFixed(2)} = ${x.memoriaMB} MB de memória e ${x.discoMB} MB de disco); equivalente na API (não cobrado): US$ ${x.equivalenteApiUSD.toFixed(2)}; serviços pagos detectados: ${x.servicos.join(', ') || 'nenhum'}`).join('\n') +
+      `\nCustos cadastrados:\n${f.custos.map(c => `- ${c.nome} (${c.categoria}, ${c.recorrencia}, ${nomeSetor(c.setor)}): R$ ${c.valor}`).join('\n') || '(nenhum: peça para a dona cadastrar em Painel › Financeiro)'}`;
+  }
+  if (dep.id === 'rh') {
+    const agora = Date.now(), linhas = [];
+    for (const e of config.especialidades || []) {
+      const meus = relatorios.filter(r => r.especialidade === e.id), mes = meus.filter(r => agora - r.fim < 30 * 864e5);
+      const ult = meus.reduce((a, r) => Math.max(a, r.fim), 0);
+      linhas.push(`- ${e.id} (${e.nome}): ${mes.length} entregas em 30 dias, ${mes.filter(r => r.avaliacao?.tipo === 'refazer').length} para refazer, QA ${mes.filter(r => r.revisao?.aprovado).length}/${mes.filter(r => r.revisao).length} aprovadas, última ${ult ? diaDe(ult) : 'nunca'}`);
+    }
+    const semDono = relatorios.filter(r => agora - r.fim < 30 * 864e5 && (!r.especialidade || r.especialidade === 'generalista') && !r.rotina).map(r => `- ${nomeSetor(r.setor)}: ${curto(semQuebra(r.pedido), 120)}`).slice(0, 40).join('\n');
+    const repasses = [...ordens.values()].filter(o => o.repasse).map(o => `- ${o.repasse.de} → ${o.repasse.para}: ${curto(o.pedido, 100)}`).slice(0, 20).join('\n');
+    return `${base}\n\nEQUIPE ATUAL:\n${linhas.join('\n')}\n\nPEDIDOS DOS ÚLTIMOS 30 DIAS QUE FICARAM SEM ESPECIALISTA (generalista):\n${semDono || '(nenhum)'}\n\nREPASSES ENTRE ESPECIALISTAS:\n${repasses || '(nenhum)'}`;
+  }
+  if (dep.id === 'produto') return `${base}\n\nENTREGAS DO MÊS:\n${entregasRecentes(30)}\n\nIDEIAS ANOTADAS:\n${ideias.filter(i => i.status !== 'mandada').map(i => `- ${nomeSetor(i.setor)}: ${i.titulo} (${i.prioridade})`).join('\n') || '(nenhuma)'}\n\nMETAS:\n${metas.filter(m => m.status === 'ativa').map(m => `- ${nomeSetor(m.setor)}: ${m.titulo}${m.prazo ? ' até ' + m.prazo : ''} (${m.passos.filter(x => x.status === 'feito').length}/${m.passos.length})`).join('\n') || '(nenhuma)'}`;
+  if (dep.id === 'academia' || dep.id === 'comunidade') return `${base}\n\nO QUE A EQUIPE FEZ NOS ÚLTIMOS 7 DIAS:\n${entregasRecentes(7)}`;
+  if (dep.id === 'seguranca') return `${base}\n\nPasta raiz dos projetos: ${RAIZ_PROJETOS}. Faça uma auditoria só de leitura: .env versionado no git, chaves ou senhas no código, rotas de API sem autenticação, dados pessoais sem cuidado. Olhe por amostragem, priorize o que está em produção.`;
+  return `${base}\n\nENTREGAS DOS ÚLTIMOS 30 DIAS:\n${entregasRecentes(30)}`;
+}
+const PEDIDOS_DEP = {
+  rh: 'Faça a reunião mensal de RH da equipe de especialistas. Proponha contratações SÓ se houver demanda real sem especialista (pedidos no generalista ou repasses), treinamentos para quem teve muitos "refazer" e aposentadoria para quem está parado há mais de 60 dias.',
+  financeiro: 'Faça o relatório financeiro da semana: quanto cada projeto custa por mês e por quê, o que mudou, gastos fora do normal e propostas de economia (com valor estimado). Se faltar custo cadastrado (assinatura do Claude, VPS, domínios, lojas, APIs), diga exatamente o que a dona deve cadastrar.',
+  marketing: 'Monte o plano de marketing da semana: para os produtos com mais chance agora, uma proposta de campanha (público, mensagem, canal) e 3 rascunhos de posts prontos para revisar. Pesquise concorrentes na web quando ajudar e cite as fontes.',
+  inovacao: 'Faça o estudo mensal de inovação: 3 a 5 áreas ou nichos novos onde a empresa poderia atuar, cada um com nota de 0 a 10 em mercado, esforço, risco e encaixe com o que a empresa já sabe fazer, uma nota final de chance, fontes e o primeiro passo barato para testar.',
+  parcerias: 'Procure editais, aceleradoras, programas de startups e possíveis parceiros (foco no Brasil) que combinem com os produtos da empresa. Para cada um: prazo, requisitos, link e por que combina. Ordene por chance e prazo.',
+  produto: 'Monte o roadmap do mês: prioridades por produto, o que deveria ser feito primeiro e por quê, usando as entregas, ideias e metas.',
+  seguranca: 'Faça a auditoria mensal de segurança, só de leitura. Liste os riscos achados por gravidade, com o arquivo e o que fazer. Nunca mostre o valor de segredos encontrados, só onde estão.',
+  academia: 'Monte o plano de estudos da semana a partir do que a equipe fez: 3 a 5 conceitos que valem aprender (explicação curta e um material gratuito bom), 2 desafios práticos pequenos e uma linha para o diário de aprendizado.',
+  comunidade: 'Proponha 2 ideias de post técnico a partir do que foi construído na semana, com um rascunho completo do melhor (sem nomes de clientes, caminhos ou dados privados).',
+};
+const estadoDeps = () => (estadoRotinas.departamentos ||= {});
+async function rodarDepartamento(id, origem = 'agenda') {
+  const dep = deps().find(d => d.id === id);
+  if (!dep) return { erro: 'Departamento não encontrado.' };
+  const ed = estadoDeps(), e = (ed[id] ||= {});
+  if (e.rodando) return { erro: 'Esse departamento já está trabalhando nisso.' };
+  const lider = lerEspecialista(dep.lider);
+  if (!lider) return { erro: 'O líder desse departamento não tem manual.' };
+  e.rodando = true; e.inicio = Date.now(); avisar();
+  try {
+    const dados = await dadosDoDepartamento(dep);
+    const pedidoDep = PEDIDOS_DEP[id] || `Faça o relatório do mês do departamento ${dep.nome}: o que vale fazer agora para a empresa, com base nos dados.`;
+    const extraRH = id === 'rh' ? `,\n "contratacoes": [{"id": "minusculas-e-hifen", "nome": "...", "cor": "#RRGGBB", "modelo": "sonnet|opus|haiku", "ferramentas": ["Read", "..."], "descricao": "1 frase", "manual": "manual completo em Markdown, 15 a 40 linhas, no estilo: Você é o especialista em X da ${EMPRESA()}...", "arquivos": "regex ou vazio", "motivo": "por que contratar"}]` : '';
+    const prompt = `Você é o departamento ${dep.nome} da ${EMPRESA()}. ${pedidoDep}\n\nDados (coletados agora pelo escritório):\n${dados}\n\nResponda APENAS JSON: {"titulo": "frase curta", "resumo": "2 a 4 frases simples para a dona (ela não é técnica)", "itens": ["o que você achou/propõe, um por item, concreto"], "proximos": ["próximo passo sugerido"], "pergunta": "pergunta para a dona se precisar de uma decisão, senão vazio", "detalhe": "relatório completo em Markdown"${extraRH}}`;
+    const ferramentas = dep.web ? ['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch'] : ['Read', 'Grep', 'Glob'];
+    const def = { [dep.lider]: { description: lider.descricao || lider.nome, prompt: `${contextoEmpresa()}\n\n---\n\n${lider.manual}\n\nNesta tarefa você só lê e pesquisa: não altera nada.`, model: lider.modelo || 'sonnet', tools: ferramentas } };
+    const pasta = dep.id === 'seguranca' ? RAIZ_PROJETOS : '/tmp';
+    const txt = await rodarClaudeLeitura(pasta, config.rotinas?.departamentos?.conta || Object.keys(config.contas || { pessoal: '' })[0], prompt, def, dep.lider, 20 * 60_000);
+    let j; try { j = JSON.parse(txt.slice(txt.indexOf('{'), txt.lastIndexOf('}') + 1)); } catch { throw new Error('o departamento não devolveu o relatório no formato esperado'); }
+    const lista = x => (Array.isArray(x) ? x : []).slice(0, 12).map(v => censurarTexto(String(v)).slice(0, 400));
+    if (id === 'rh') for (const c of (Array.isArray(j.contratacoes) ? j.contratacoes : []).slice(0, 4)) {
+      const cid = String(c.id || '').toLowerCase().replace(/[^a-z0-9-]/g, '').slice(0, 30);
+      if (!cid || especialidadeExiste(cid) || propostasRH.some(p => p.especialista.id === cid && p.status === 'aguardando')) continue;
+      propostasRH.unshift({ id: novoId(), status: 'aguardando', criada: Date.now(), motivo: censurarTexto(String(c.motivo || '')).slice(0, 500),
+        especialista: { id: cid, nome: String(c.nome || cid).slice(0, 60), cor: /^#[0-9a-f]{6}$/i.test(c.cor) ? c.cor : '#5F5E5A', modelo: ['sonnet', 'opus', 'haiku'].includes(c.modelo) ? c.modelo : 'sonnet',
+          ferramentas: Array.isArray(c.ferramentas) ? c.ferramentas.filter(f => FERRAMENTAS_OK.includes(f)) : ['Read', 'Grep', 'Glob'], descricao: String(c.descricao || '').slice(0, 200), manual: String(c.manual || '').slice(0, 8000), arquivos: String(c.arquivos || '').slice(0, 300) } });
+      gravarPropostasRH();
+    }
+    const contratacoes = id === 'rh' ? propostasRH.filter(p => p.status === 'aguardando').length : 0;
+    entregarRotina({ sessao: 'dep-' + id, agente: dep.nome, setor: 'geral', especialidade: dep.lider, cwd: pasta, conta: 'empresa', pedido: `Rotina do departamento ${dep.nome}`,
+      resposta: censurarTexto(String(j.detalhe || j.resumo || '')).slice(0, 12000),
+      simples: { titulo: censurarTexto(String(j.titulo || dep.nome)).slice(0, 160), resumo: censurarTexto(String(j.resumo || '')).slice(0, 1200), feito: lista(j.itens),
+        resultado: { status: contratacoes ? 'atencao' : 'ok', texto: contratacoes ? `${contratacoes} proposta(s) de contratação esperando você em Painel › Empresa.` : '' },
+        proximos: lista(j.proximos), termos: [], pergunta: censurarTexto(String(j.pergunta || '')).slice(0, 600), bloqueio: '' } });
+    e.ultima = Date.now(); e.erro = '';
+    notificar('esperando', `${dep.nome}: ${curto(String(j.titulo || 'relatório pronto'), 120)}`);
+    return { ok: true };
+  } catch (err) { e.erro = String(err.message || err).slice(0, 200); throw err; }
+  finally { e.rodando = false; gravarRotinas(); avisar(); }
+}
+function decidirContratacao(id, aprovar) {
+  const pr = propostasRH.find(x => x.id === id);
+  if (!pr || pr.status !== 'aguardando') return { erro: 'Essa proposta não está aguardando.' };
+  if (aprovar) {
+    const e = pr.especialista;
+    if (!e.manual || e.manual.length < 100) return { erro: 'O manual proposto está incompleto.' };
+    contratarEspecialistas([{ ...e, manual: e.manual, ferramentas: e.ferramentas.length ? e.ferramentas : 'todas' }]);
+    infoEspecialistas = resumoEspecialistas();
+    editarConfig(c => { const rh = (c.departamentos || []).find(d => d.id === 'rh'); if (rh && !(rh.contratados ||= []).includes(e.id)) rh.contratados.push(e.id); });
+  }
+  pr.status = aprovar ? 'aprovada' : 'recusada'; pr.decidida = Date.now(); gravarPropostasRH(); avisar();
+  return { ok: true };
+}
+// agenda das rotinas dos departamentos (fuso da empresa)
+setInterval(() => {
+  const { data, hora, dia } = agoraNoFuso(), diaMes = Number(data.slice(8, 10));
+  for (const dep of deps()) {
+    const r = dep.rotina, e = estadoDeps()[dep.id] ||= {};
+    if (!r?.ativo || r.hora !== hora || e.marca === data) continue;
+    const hoje = r.freq === 'mensal' ? diaMes === r.dia : dia === r.dia;
+    if (!hoje) continue;
+    e.marca = data;
+    rodarDepartamento(dep.id, 'agenda').catch(err => console.error('departamento', dep.id + ':', err.message));
+  }
+}, 20_000);
 
 // ---------- painel lateral: gráficos, equipe e saúde ----------
 // o que é de cada um além das tarefas que recebe (rotinas e papéis fixos da empresa)
@@ -2576,6 +2789,7 @@ function foto() {
     telegram: telegram ? { ligado: true, eventos: telegram.eventos } : { ligado: false }, minhaSala: config.minhaSala || {},
     especialidades: regrasPapel.map(({ id, nome, cor, instrucao }) => ({ id, nome, cor, instrucao, ...(infoEspecialistas[id] || {}) })),
     contas: Object.keys(config.contas || { pessoal: '' }),
+    departamentos: deps().map(d => ({ ...d, estado: estadoDeps()[d.id] || {} })), propostasRH: propostasRH.filter(p => p.status === 'aguardando' || Date.now() - (p.decidida || 0) < 7 * 864e5).slice(0, 20),
     convites: convites.map(({ hash, ...c }) => ({ ...c, ativoAgora: conviteAtivo(c), projeto: nomeSetor(c.setor) })),
     reunioes: reunioes.slice(0, 8).map(({ conta, ...r }) => r),
     metas: metas.filter(m => m.status === 'ativa' || Date.now() - (m.concluida || 0) < 7 * 864e5).slice(0, 40),
@@ -2840,6 +3054,20 @@ const servidor = http.createServer(async (req, res) => {
     if (rota === '/api/relatorios' && req.method === 'GET') return json(res, 200, relatorios.filter(r => !r.emRevisao));
     if (rota === '/api/painel' && req.method === 'GET') return json(res, 200, await dadosDoPainel());
     if (rota === '/api/rotinas/resumo/rodar' && req.method === 'POST') { const r = await resumoDaManha('painel'); return json(res, 200, r); }
+    if (rota === '/api/financeiro' && req.method === 'GET') return json(res, 200, await dadosFinanceiros());
+    if (rota === '/api/financeiro/custos' && req.method === 'POST') {
+      let d; try { d = JSON.parse(await lerCorpo(req, 8 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
+      const r = salvarCusto(d); return json(res, r.erro ? 400 : 200, r);
+    }
+    const fc = rota.match(/^\/api\/financeiro\/custos\/([0-9a-f]{12})\/apagar$/);
+    if (fc && req.method === 'POST') { financeiro.custos = financeiro.custos.filter(c => c.id !== fc[1]); gravarFinanceiro(); cacheFinanceiro.em = 0; avisar(); return json(res, 200, { ok: true }); }
+    const dr = rota.match(/^\/api\/departamentos\/([a-z0-9-]{2,30})\/rodar$/);
+    if (dr && req.method === 'POST') {
+      const r = await Promise.race([rodarDepartamento(dr[1], 'painel').catch(e => ({ erro: e.message })), new Promise(ok => setTimeout(() => ok({ ok: true, mensagem: 'O departamento começou. O relatório chega nas Conversas em alguns minutos.' }), 1500))]);
+      return json(res, r.erro ? 400 : 200, r);
+    }
+    const rh = rota.match(/^\/api\/rh\/([0-9a-f]{12})\/(aprovar|recusar)$/);
+    if (rh && req.method === 'POST') { const r = decidirContratacao(rh[1], rh[2] === 'aprovar'); return json(res, r.erro ? 400 : 200, r); }
     if (rota === '/api/convites' && req.method === 'POST') {
       let d; try { d = JSON.parse(await lerCorpo(req, 16 * 1024) || '{}'); } catch { return json(res, 400, { erro: 'Pedido inválido.' }); }
       const r = criarConvite(d); return json(res, r.erro ? 400 : 200, r);
