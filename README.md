@@ -4,9 +4,15 @@ Um escritório em 3D para **ver e comandar os agentes do Claude Code** trabalhan
 Cada projeto vira uma sala, cada sessão do Claude vira um robô na mesa, e você conversa com eles por um chat,
 acompanha tudo num painel e aprova o que vai para produção com um botão.
 
-![O escritório](docs/escritorio.png)
+![O escritório](docs/escritorio.jpg)
+
+📖 **[Guia completo: como instalar e usar](COMO-USAR.md)**
 
 > Projeto independente, feito com o Claude Code. Não é um produto oficial da Anthropic.
+
+| Agentes trabalhando | Chat com um agente |
+| --- | --- |
+| ![Agentes trabalhando](docs/agentes-trabalhando.jpg) | ![Chat com um agente](docs/chat-com-agente.jpg) |
 
 ## O que ele faz
 
@@ -44,7 +50,7 @@ cd escritorio-de-agentes
 
 O instalador pergunta o nome da empresa e a pasta dos seus projetos, cria o `config.json`, a sua senha de acesso,
 liga o escritório ao Claude Code (com backup do `settings.json`) e, se você rodar como root, instala o serviço.
-Depois é só abrir `http://127.0.0.1:4800`.
+Depois é só abrir `http://127.0.0.1:4800`. O passo a passo completo, com prints, está no [guia de uso](COMO-USAR.md).
 
 Edite `especialistas/_empresa.md` para contar aos agentes o que a sua empresa faz e quais são os projetos.
 Quanto melhor descrito, melhor eles trabalham.
