@@ -37,6 +37,7 @@
   el.querySelector('#trilho').innerHTML = SECOES.map(x => x ? `<button role="tab" data-aba="${x[0]}" title="${x[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONES[x[0]]}</svg><span>${x[1]}</span></button>` : '<hr>').join('');
   try { if (localStorage.getItem('painel-largo') === '1') el.classList.add('larga'); } catch { /* ignora */ }
 
+  let timerEntrada = null, ultimoHtml = '', ultimaAba = '';
   let aberta = false, aba = 'geral', dados = null, buscando = false, filtroEquipe = '', filtroAtiv = 'tudo';
   let pubs = null, filtroPub = 'todos', buscandoPub = false, fin = null, buscandoFin = false;
   async function buscarFin(forcar) {
@@ -96,7 +97,7 @@
 
   el.addEventListener('click', e => {
     const t = e.target.closest('[data-aba]');
-    if (t) { aba = t.dataset.aba; try { localStorage.setItem('painel-aba', aba); } catch { /* ignora */ } if (aba === 'publicacoes') buscarPub(); desenhar(); conteudo.scrollTop = 0; conteudo.classList.remove('entrando'); void conteudo.offsetWidth; conteudo.classList.add('entrando'); return; }
+    if (t) { aba = t.dataset.aba; try { localStorage.setItem('painel-aba', aba); } catch { /* ignora */ } if (aba === 'publicacoes') buscarPub(); desenhar(); conteudo.scrollTop = 0; conteudo.classList.remove('entrando'); void conteudo.offsetWidth; conteudo.classList.add('entrando'); clearTimeout(timerEntrada); timerEntrada = setTimeout(() => conteudo.classList.remove('entrando'), 450); return; }
     if (e.target.closest('[data-acao="fechar-gaveta"]')) return abrir(false);
     if (e.target.closest('[data-acao="ampliar-gaveta"]')) { el.classList.toggle('larga'); try { localStorage.setItem('painel-largo', el.classList.contains('larga') ? '1' : '0'); } catch { /* ignora */ } return; }
     const conv = e.target.closest('[data-conversar]');
@@ -567,6 +568,8 @@
         <ul class="lista-g sistemas">${servs.map(g => `<li><i class="ponto-cor ${esc(g.saude)}"></i><b>${esc(g.nome)}</b><small>${esc(g.tipo === 'interno' ? 'uso interno' : g.tipo === 'infra' ? 'infraestrutura' : 'produção')} · ${g.containers.length} containers · ${esc(rotSaude[g.saude] || g.saude)}</small></li>`).join('')}</ul></section>
       <section class="bloco"><h3>WhatsApp das lojas</h3><p class="sub">Conferido ${esc(quando(dados.whatsapp.conferidoEm))}. Número travado vira incidente depois de 2h sem mensagem em horário comercial.</p>
         ${wa.length ? `<ul class="lista-g">${wa.map(n => `<li><i class="ponto-cor ${n.estado !== 'open' ? 'parado' : n.minutosParado >= 120 ? 'atencao' : 'ok'}"></i><b>${esc(n.loja)}</b><small>${esc(n.sistema)} · ${n.estado === 'open' ? 'conectado' : 'desconectado'} · última mensagem ${esc(quando(n.ultima))} · ${n.mensagens7d} de clientes na semana</small></li>`).join('')}</ul>` : '<p class="vazio-g">Ainda não conferido.</p>'}</section>
+      <section class="bloco"><h3>Avisos técnicos</h3><p class="sub">Os últimos problemas que o escritório percebeu, antes de virar um serviço parado.</p>
+        ${dados.avisosTecnicos?.length ? `<ul class="lista-g">${dados.avisosTecnicos.map(a => `<li><i class="ponto-cor atencao"></i><b>${esc(curto(a.texto, 160))}</b><small>${esc(quando(a.t))}</small></li>`).join('')}</ul>` : '<p class="vazio-g">Nenhum aviso recente.</p>'}</section>
       <section class="bloco"><h3>Rotinas do escritório</h3><p class="sub">Se alguma parar de rodar, aparece aqui.</p>
         <ul class="lista-g">${rotinasLista.map(r => `<li><i class="ponto-cor ${r.erro ? 'parado' : r.ultima ? 'ok' : ''}"></i><b>${esc(r.nome)}</b><small>${esc(r.freq)} · ${r.ultima ? 'última ' + esc(quando(r.ultima)) : 'ainda não rodou'}${r.erro ? ' · erro: ' + esc(curto(r.erro, 90)) : ''}</small></li>`).join('')}</ul>
         <p class="rodape-g">Escritório no ar ${esc(quando(dados.escritorio.desde).replace('há ', 'há '))} · ${dados.escritorio.memoriaMB} MB de memória · ${dados.escritorio.relatorios} relatórios guardados${bk.ultimo ? ' · backup: ' + esc(bk.ultimo) : ''}</p></section>`;
@@ -718,7 +721,10 @@
     const av = el.querySelector('#aoVivoG');
     if (av) av.textContent = 'ao vivo · ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const pos = conteudo.scrollTop;
-    conteudo.innerHTML = aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'empresa' ? empresaAba() : aba === 'financeiro' ? financeiroAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : geral();
+    const html = aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'empresa' ? empresaAba() : aba === 'financeiro' ? financeiroAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : geral();
+    if (html === ultimoHtml && aba === ultimaAba) return; // nada mudou: não mexe na tela
+    ultimoHtml = html; ultimaAba = aba;
+    conteudo.innerHTML = html;
     conteudo.scrollTop = pos;
     conteudo.querySelectorAll('[data-rascunho]').forEach(x => { if (rascunhos[x.dataset.rascunho] != null) x.value = rascunhos[x.dataset.rascunho]; });
     conteudo.querySelectorAll('details[data-det]').forEach(x => { if (detAbertos.has(x.dataset.det)) x.open = true; });

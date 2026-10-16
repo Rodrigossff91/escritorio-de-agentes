@@ -579,6 +579,18 @@ function construir(estado) {
     quadroArte(predio, s.cx, 1.75, s.cz - P / 2 + 0.17, st.cor, i);
   });
 
+  // letreiros de corredor: nome da ala pendurado no corredor principal, na entrada de cada fileira
+  if (linhasDep > 0) {
+    const letreiroDep = placa('Ala de Departamentos', '#ffffff', '#444441', 1.6);
+    letreiroDep.position.set(xCol(centro), 4.3, zDep(linhasDep - 1) + P / 2 + C / 2);
+    predio.add(letreiroDep);
+  }
+  if (linhas > 0) {
+    const letreiroProj = placa('Ala de Projetos', '#ffffff', '#444441', 1.6);
+    letreiroProj.position.set(xCol(centro), 4.3, zLinha(linhas - 1) + P / 2 + C / 2);
+    predio.add(letreiroProj);
+  }
+
   for (let r = 0; r < linhas; r++) for (let c = 0; c < corredoresV.length; c++) {
     const zc = zLinha(r) + P / 2 + C / 2, xc = corredoresV[c];
     if (Math.abs(xc) > largura / 2 - 1) continue;

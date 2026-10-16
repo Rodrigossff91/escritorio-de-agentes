@@ -151,7 +151,7 @@ Puxe a aba **PAINEL** na borda direita (ou aperte **P**).
 | Projetos | ficha de cada projeto: saúde, quem está trabalhando, últimas entregas |
 | Publicações | histórico do que foi ao ar, com pedido de volta de versão |
 | Equipe | especialistas e reuniões |
-| Infra | memória, disco e swap do servidor, containers e rotinas |
+| Infra | memória, disco e swap do servidor, containers, rotinas e os últimos avisos técnicos (até 5) |
 | Atividade | linha do tempo das últimas 48 horas |
 
 Num passo de meta, aperte **Mandar**: ele vira tarefa e é marcado como feito sozinho quando a equipe entrega.

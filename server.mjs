@@ -1835,7 +1835,10 @@ async function enviarTelegram(texto, cfg = telegram) {
     return j.ok ? { ok: true } : { erro: j.description || 'O Telegram recusou a mensagem.' };
   } catch { return { erro: 'Não consegui falar com o Telegram.' }; }
 }
+// últimos avisos técnicos (ordem que falhou, rotina com erro, agente travado...) para mostrar na aba Infra, mesmo sem Telegram configurado
+const avisosTecnicos = [];
 function notificar(evento, texto) {
+  if (evento === 'falha' || evento === 'travado') { avisosTecnicos.unshift({ t: Date.now(), texto }); avisosTecnicos.length = Math.min(avisosTecnicos.length, 5); }
   if (!telegram?.token || telegram.eventos?.[evento] === false) return;
   const link = config.enderecoPublico ? `\n${config.enderecoPublico}` : '';
   enviarTelegram(`Escritório: ${texto}${link}`).then(r => r.erro && console.error('telegram:', r.erro));
@@ -2817,7 +2820,7 @@ async function dadosDoPainel() {
     totais: { hoje: porDia[dias.at(-1)].total, semana: rels.filter(r => agora - r.fim < 7 * dia).length, mes: rels.filter(r => agora - r.fim < 30 * dia).length,
       usdMes: rels.filter(r => agora - r.fim < 30 * dia).reduce((a, r) => a + usd(r), 0),
       aprovacaoQA: revisados.length ? Math.round(revisados.filter(r => r.revisao.aprovado).length / revisados.length * 100) : null, revisados: revisados.length },
-    metricas: metricas.slice(-7 * 96), rotinas: saudeRotinas, backup: await estadoBackup(),
+    metricas: metricas.slice(-7 * 96), rotinas: saudeRotinas, backup: await estadoBackup(), avisosTecnicos,
     whatsapp: { conferidoEm: whatsapp.conferidoEm, numeros: whatsapp.numeros.filter(n => n.mensagens7d > 0 || n.estado === 'open') },
     escritorio: { desde: INICIO, memoriaMB: Math.round(process.memoryUsage().rss / 1048576), relatorios: relatorios.length },
   };
