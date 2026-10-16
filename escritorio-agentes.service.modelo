@@ -1,0 +1,25 @@
+[Unit]
+Description=Escritório de Agentes (painel 3D do Claude Code)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=@RAIZ@
+ExecStart=@NODE@ @RAIZ@/server.mjs
+Environment=HOST=127.0.0.1
+Environment=PORT=4800
+Restart=always
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=@RAIZ@ @PROJETOS@
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# Usado pelos agentes do escritório: sobe uma prévia (homologação) e devolve o link para a dona ver antes de aprovar.
+# Uso (na pasta do projeto): escritorio-previa "<comando que sobe o app>" <porta> "<o que mudou>"
+# Ex.: escritorio-previa "npm run dev -- -p 4910" 4910 "Nova tela de agendamento"
+set -euo pipefail
+[ $# -lt 2 ] && { echo 'Uso: escritorio-previa "<comando>" <porta 4900-4999> "<o que mudou>"' >&2; exit 1; }
+porta="$2"
+[[ "$porta" =~ ^49[0-9][0-9]$ ]] || { echo "Use uma porta entre 4900 e 4999." >&2; exit 1; }
+if ss -ltn "( sport = :$porta )" | grep -q ":$porta"; then echo "A porta $porta já está em uso. Escolha outra entre 4900 e 4999." >&2; exit 1; fi
+unidade="escritorio-previa-$(date +%s)-$porta"
+systemd-run --unit="$unidade" --collect --quiet --property=WorkingDirectory="$PWD" --property=RuntimeMaxSec=26h \
+  --setenv=HOME="$HOME" --setenv=PATH="$PATH" --setenv=PORT="$porta" --setenv=ESCRITORIO_ORDEM= /bin/bash -lc "$1"
+for _ in $(seq 1 90); do curl -s -o /dev/null -m 2 "http://127.0.0.1:$porta/" && break; sleep 2; done
+if ! curl -s -o /dev/null -m 3 "http://127.0.0.1:$porta/"; then
+  echo "A prévia não respondeu na porta $porta em 3 minutos. Veja: journalctl -u $unidade -n 50" >&2
+  systemctl stop "$unidade" 2>/dev/null || true; exit 1
+fi
+token=$(cat "$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/data/hook-token")
+corpo=$(jq -n --arg u "$unidade" --arg p "$porta" --arg d "${3:-}" --arg c "$PWD" '{unidade:$u, porta:($p|tonumber), descricao:$d, cwd:$c}')
+curl -s -m 30 -X POST http://127.0.0.1:4800/api/previas -H "Content-Type: application/json" -H "X-Escritorio-Token: $token" -H "X-Escritorio-Ordem: ${ESCRITORIO_ORDEM:-}" --data-binary "$corpo" | jq -r '.mensagem // .erro // .'

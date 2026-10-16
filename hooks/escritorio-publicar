@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Usado pelos agentes do escritório: registra um pedido de publicação para a dona aprovar no chat.
+# Uso: escritorio-publicar "<comando de deploy>" "<o que vai ao ar>" "<como verificar>"
+set -euo pipefail
+[ $# -lt 2 ] && { echo 'Uso: escritorio-publicar "<comando de deploy>" "<o que vai ao ar>" "<como verificar>"' >&2; exit 1; }
+token=$(cat "$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)/data/hook-token")
+corpo=$(jq -n --arg c "$1" --arg r "$2" --arg v "${3:-}" --arg d "$PWD" '{comando:$c, resumo:$r, verificar:$v, cwd:$d}')
+resp=$(curl -s -m 15 -X POST http://127.0.0.1:4800/api/deploys -H "Content-Type: application/json" -H "X-Escritorio-Token: $token" -H "X-Escritorio-Ordem: ${ESCRITORIO_ORDEM:-}" --data-binary "$corpo")
+echo "$resp" | jq -r '.mensagem // .erro // .'

@@ -1,0 +1,345 @@
+{
+  "empresa": "Minha Empresa",
+  "setores": [
+    {
+      "id": "geral",
+      "nome": "Minha Empresa (geral)",
+      "cor": "#085041",
+      "pastas": [
+        "/home/voce/projetos"
+      ]
+    },
+    {
+      "id": "site",
+      "nome": "Site",
+      "cor": "#D85A30",
+      "pastas": [
+        "/home/voce/projetos/site"
+      ]
+    },
+    {
+      "id": "api",
+      "nome": "API",
+      "cor": "#185FA5",
+      "pastas": [
+        "/home/voce/projetos/api"
+      ],
+      "po": true
+    },
+    {
+      "id": "app",
+      "nome": "App",
+      "cor": "#0F6E56",
+      "pastas": [
+        "/home/voce/projetos/app"
+      ]
+    },
+    {
+      "id": "escritorio",
+      "nome": "Escritório",
+      "cor": "#444441",
+      "pastas": [
+        "/home/voce/escritorio-de-agentes"
+      ]
+    }
+  ],
+  "ocultos": [],
+  "fusoHorario": "America/Sao_Paulo",
+  "minutosAteIrEmbora": 0,
+  "minutosAteTravado": 15,
+  "especialidades": [
+    {
+      "id": "testes",
+      "nome": "QA e testes",
+      "cor": "#1D9E75",
+      "instrucao": "Atue como especialista em QA: escreva e rode testes (Jest, Vitest, Playwright, xUnit, flutter test), procure bugs, regressões e casos de borda.",
+      "arquivos": "(^|/)(__tests__|tests?|e2e|test_driver|integration_test)(/|$)|\\.(test|spec|e2e-spec)\\.|_test\\.dart$|tests?\\.cs$",
+      "comandos": "\\b(npm|pnpm|yarn|bun)\\s+(run\\s+)?(test|e2e)\\b|\\b(jest|vitest|playwright)\\b|dotnet\\s+test|flutter\\s+test"
+    },
+    {
+      "id": "seguranca",
+      "nome": "Segurança e LGPD",
+      "cor": "#A32D2D",
+      "instrucao": "Atue como especialista em segurança e LGPD: autenticação JWT, permissões, segredos, OWASP, dependências vulneráveis e dados pessoais. Nunca exponha segredos.",
+      "arquivos": "(^|/)(auth|security|seguranca|guards?|permissions?|policies|lgpd)(/|\\.)|jwt|passport|csrf|cors|encrypt|cripto",
+      "comandos": "npm\\s+audit|trivy|snyk|gitleaks|semgrep"
+    },
+    {
+      "id": "devops",
+      "nome": "DevOps (líder)",
+      "cor": "#2C2C2A",
+      "instrucao": "Líder de DevOps: saúde da produção, ronda diária e coordenação de Infra, Deploy e Docker."
+    },
+    {
+      "id": "po",
+      "nome": "Product Owner",
+      "cor": "#B4B2A9",
+      "instrucao": "Dono do produto: backlog, histórias com critérios de pronto e conferência das entregas."
+    },
+    {
+      "id": "estrategia",
+      "nome": "Estrategista",
+      "cor": "#BA7517",
+      "instrucao": "Estrategista da empresa: prioridades, mercado, preço, posicionamento e onde investir."
+    },
+    {
+      "id": "pagamentos",
+      "nome": "Pagamentos",
+      "cor": "#3B6D11",
+      "instrucao": "Atue como especialista em pagamentos: Mercado Pago, PIX, Stripe, assinaturas, webhooks idempotentes e conciliação. Nunca use credenciais de produção em teste.",
+      "arquivos": "pagamentos?|payments?|mercado-?pago|\\bpix\\b|stripe|billing|assinaturas?|subscriptions?|checkout|financeiro|comiss"
+    },
+    {
+      "id": "automacao",
+      "nome": "Automação n8n",
+      "cor": "#0F6E56",
+      "instrucao": "Atue como especialista em automação com n8n: workflows, webhooks, credenciais, tratamento de erros, agendamentos e integrações. Valide o JSON dos workflows.",
+      "arquivos": "n8n|(^|/)wf-[^/]*\\.json$|workflows?/[^/]*\\.json$|automac|agent-bridge",
+      "comandos": "\\bn8n\\b"
+    },
+    {
+      "id": "whatsapp",
+      "nome": "WhatsApp (Evolution API)",
+      "cor": "#27500A",
+      "instrucao": "Atue como especialista em integração com WhatsApp via Evolution API: instâncias, webhooks, envio e recebimento de mensagens, QR code e filas.",
+      "arquivos": "whats|evolution|wpp|baileys|qr-?code",
+      "comandos": "evolution"
+    },
+    {
+      "id": "ia",
+      "nome": "IA e agentes",
+      "cor": "#7F77DD",
+      "instrucao": "Atue como especialista em IA: integrações com Anthropic, OpenAI e Gemini, prompts, agentes, ferramentas, custos de tokens e avaliação de respostas.",
+      "arquivos": "anthropic|openai|gemini|vertex|claude|\\bllm|prompts?|embedding|/agents?/|/ia/|/ai/|tutor|luna"
+    },
+    {
+      "id": "mobile",
+      "nome": "Mobile Flutter",
+      "cor": "#639922",
+      "instrucao": "Atue como especialista em Flutter: GetX, Clean Architecture, Firebase (push e functions), desempenho, publicação na Play Store e App Store.",
+      "arquivos": "\\.dart$|pubspec\\.ya?ml|/(android|ios)/|firebase_functions|\\.(kt|swift)$|play-?store",
+      "comandos": "\\bflutter\\b|\\bdart\\b|gradlew|xcodebuild|pod\\s+install"
+    },
+    {
+      "id": "docker",
+      "nome": "Docker e containers",
+      "cor": "#0C447C",
+      "instrucao": "Atue como especialista em Docker: Dockerfile multi-stage, docker compose, imagens enxutas, redes, volumes e healthchecks.",
+      "arquivos": "dockerfile|docker-compose|compose\\.ya?ml|\\.dockerignore",
+      "comandos": "\\bdocker\\b"
+    },
+    {
+      "id": "deploy",
+      "nome": "Deploy e CI/CD",
+      "cor": "#BA7517",
+      "instrucao": "Atue como especialista em deploy: Coolify, Traefik, Caddy, Azure Pipelines e GitHub Actions, releases, rollback e ambientes. Confira estado, migrations e backup antes de mexer em produção.",
+      "arquivos": "coolify|traefik|caddyfile|azure-pipelines|/\\.github/workflows/|(^|/)deploy|release|-prod/|vercel\\.json",
+      "comandos": "\\bdeploy\\b|coolify|git\\s+push|gh\\s+workflow|az\\s+pipelines"
+    },
+    {
+      "id": "infra",
+      "nome": "Infra e servidores",
+      "cor": "#EF9F27",
+      "instrucao": "Atue como especialista em servidores Linux: systemd, nginx, firewall, DNS, backups, cron e uso de disco e memória. Seja conservador com produção.",
+      "arquivos": "\\.service$|nginx|ufw|crontab|/etc/|backups?|\\.sh$|terraform",
+      "comandos": "\\b(systemctl|journalctl|ufw|crontab|nginx|df\\s+-h|free\\s+-m)\\b"
+    },
+    {
+      "id": "observabilidade",
+      "nome": "Monitoramento e logs",
+      "cor": "#5F5E5A",
+      "instrucao": "Atue como especialista em observabilidade: Sentry, logs estruturados, métricas, alertas e investigação de erros em produção.",
+      "arquivos": "sentry|monitor|logs?/|logger|alert|heartbeat|metrics",
+      "comandos": "sentry-cli"
+    },
+    {
+      "id": "banco",
+      "nome": "Banco de dados",
+      "cor": "#3C3489",
+      "instrucao": "Atue como especialista em PostgreSQL, Prisma e EF Core: modelagem, migrations seguras, índices, consultas lentas e integridade. Nunca apague dados sem confirmação.",
+      "arquivos": "\\.(sql|prisma)$|/migrations?/|schema\\.prisma|dbcontext|/(database|db)/|seed",
+      "comandos": "\\b(psql|prisma\\s+(migrate|db|generate)|pg_dump|dotnet\\s+ef|sqlite3)\\b"
+    },
+    {
+      "id": "dados",
+      "nome": "Leads e dados",
+      "cor": "#185FA5",
+      "instrucao": "Atue como especialista em dados: captação de leads (Google Places, OSM, CNPJ), raspagem responsável, ETL, ingestão e relatórios.",
+      "arquivos": "leads?|scrap|places|osm|cnpj|ingest|etl|relatorios?|reports?|\\.csv$|\\.ipynb$"
+    },
+    {
+      "id": "integracoes",
+      "nome": "Integrações",
+      "cor": "#993556",
+      "instrucao": "Atue como especialista em integrações: webhooks, APIs de terceiros (Linear, Telegram, Firebase, Google), filas e reprocessamento.",
+      "arquivos": "webhooks?|linear|telegram|firebase|integra|google|bot"
+    },
+    {
+      "id": "design",
+      "nome": "Design UX/UI",
+      "cor": "#ED93B1",
+      "instrucao": "Atue como especialista em design de interface: hierarquia visual, consistência, acessibilidade, PrimeNG, daisyUI e Tailwind bem usados.",
+      "arquivos": "\\.(svg|fig|sketch)$|/(design|tokens|theme|icons|assets)/|tailwind\\.config|design-system"
+    },
+    {
+      "id": "angular",
+      "nome": "Front-end Angular",
+      "cor": "#E24B4A",
+      "instrucao": "Atue como especialista em Angular 20+: standalone components, Signals e NgRx Signals, PrimeNG, roteamento, formulários e desempenho.",
+      "arquivos": "\\.component\\.(ts|html|scss|css)$|angular\\.json|\\.store\\.ts$|ngrx",
+      "comandos": "\\bng\\s+(build|serve|test|generate)\\b"
+    },
+    {
+      "id": "nextjs",
+      "nome": "Front-end Next.js",
+      "cor": "#D4537E",
+      "instrucao": "Atue como especialista em Next.js e React: App Router, server components, estado, formulários, Tailwind, acessibilidade e desempenho.",
+      "arquivos": "\\.(tsx|jsx)$|next\\.config|/(components|pages|app|hooks)/.*\\.(ts|tsx)$|vite\\.config|\\.css$",
+      "comandos": "\\bnext\\s+(build|dev)\\b|\\bvite\\b"
+    },
+    {
+      "id": "nestjs",
+      "nome": "Backend NestJS",
+      "cor": "#378ADD",
+      "instrucao": "Atue como especialista em NestJS e Prisma: módulos, controllers, services, DTOs com validação, guards, filas e testes.",
+      "arquivos": "\\.(module|controller|service|guard|dto|entity|gateway|interceptor|pipe)\\.ts$|nest-cli|/(backend|api|server)/.*\\.ts$|server\\.m?js$",
+      "comandos": "\\bnest\\s+(build|start|g)\\b"
+    },
+    {
+      "id": "dotnet",
+      "nome": "Backend .NET",
+      "cor": "#534AB7",
+      "instrucao": "Atue como especialista em .NET 10: Clean Architecture, EF Core, MediatR, SignalR, validação e testes.",
+      "arquivos": "\\.(cs|csproj|sln|slnx)$|appsettings",
+      "comandos": "\\bdotnet\\s+(build|run|restore|publish)\\b"
+    },
+    {
+      "id": "seo",
+      "nome": "SEO",
+      "cor": "#5DCAA5",
+      "instrucao": "Atue como especialista em SEO: metadados, sitemap, robots, dados estruturados, desempenho e conteúdo para busca.",
+      "arquivos": "sitemap|robots\\.txt|/seo/|structured-data|og-image|metadata"
+    },
+    {
+      "id": "marketing",
+      "nome": "Marketing",
+      "cor": "#D85A30",
+      "instrucao": "Atue como especialista em marketing: landing pages, campanhas, e-mails, funil, copy persuasiva e métricas de conversão.",
+      "arquivos": "marketing|landing|campanhas?|campaigns?|newsletter|promo|prototipo"
+    },
+    {
+      "id": "conteudo",
+      "nome": "Conteúdo e redação",
+      "cor": "#72243E",
+      "instrucao": "Atue como especialista em conteúdo: textos claros, tom de voz da marca, blog, redes sociais e mensagens para clientes.",
+      "arquivos": "/(blog|posts|content|conteudo|copy|social|redes|mensagens|templates)/|\\.mdx$"
+    },
+    {
+      "id": "produto",
+      "nome": "Produto",
+      "cor": "#26215C",
+      "instrucao": "Atue como gerente de produto: entenda o problema, defina requisitos, priorize, escreva critérios de aceite e roadmap.",
+      "arquivos": "(^|/)(prd|roadmap|requisitos|requirements|backlog|user-stories|historias|plano)"
+    },
+    {
+      "id": "suporte",
+      "nome": "Suporte ao cliente",
+      "cor": "#085041",
+      "instrucao": "Atue como especialista em suporte: FAQ, respostas a clientes, base de conhecimento e análise de chamados.",
+      "arquivos": "/(faq|help|ajuda|suporte|support|kb)/|faq\\."
+    },
+    {
+      "id": "docs",
+      "nome": "Documentação",
+      "cor": "#888780",
+      "instrucao": "Atue como especialista em documentação técnica: README, guias de instalação, arquitetura e comentários corretos.",
+      "arquivos": "\\.(md|rst)$|/docs?/"
+    }
+  ],
+  "origensPermitidas": [],
+  "maxDeFolga": 40,
+  "revisaoQA": true,
+  "maxOrdens": 4,
+  "rotinas": {
+    "devops": {
+      "ativo": true,
+      "hora": "07:00",
+      "conta": "pessoal"
+    },
+    "poSemanal": {
+      "ativo": true,
+      "dia": 1,
+      "hora": "08:00",
+      "conta": "pessoal"
+    },
+    "vigia": {
+      "ativo": true,
+      "minutos": 5,
+      "diagnosticar": true,
+      "discoAlerta": 85,
+      "memoriaMinima": 8
+    },
+    "estrategiaMensal": {
+      "ativo": true,
+      "diaDoMes": 1,
+      "hora": "09:00",
+      "conta": "pessoal"
+    },
+    "aprendizado": {
+      "ativo": true,
+      "dia": 5,
+      "hora": "17:00",
+      "conta": "pessoal",
+      "minimoLicoes": 1
+    },
+    "whatsapp": {
+      "ativo": false,
+      "minutos": 60,
+      "horasSemMensagem": 2,
+      "inicio": 8,
+      "fim": 20,
+      "dias": [
+        1,
+        2,
+        3,
+        4,
+        5,
+        6
+      ],
+      "minimoMensagens7d": 10,
+      "bancos": []
+    },
+    "resumoManha": {
+      "ativo": true,
+      "hora": "08:00"
+    }
+  },
+  "servidores": [
+    {
+      "nome": "API",
+      "setor": "api",
+      "regra": "^api",
+      "tipo": "producao"
+    },
+    {
+      "nome": "Banco",
+      "setor": "api",
+      "regra": "postgres",
+      "tipo": "producao"
+    }
+  ],
+  "servidoresIgnorar": [],
+  "historico": {
+    "lojas": [],
+    "registros": [],
+    "setores": {}
+  },
+  "clima": {},
+  "raizProjetos": "",
+  "cofre": "",
+  "contas": {
+    "pessoal": ""
+  },
+  "pastasBackup": [],
+  "backupEscritorio": ""
+}

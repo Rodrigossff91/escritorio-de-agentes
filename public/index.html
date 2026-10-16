@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Escritório dos agentes</title>
+<link rel="icon" href="/favicon.svg"><link rel="stylesheet" href="/estilo.css">
+</head>
+<body>
+<div class="app">
+  <header class="topo">
+    <div class="marca"><img src="/favicon.svg" width="20" height="20" alt=""><span id="empresa">Escritório</span></div>
+    <span class="pilula" id="contTrabalhando">0 trabalhando</span>
+    <span class="pilula" id="contEsperando">0 esperando você</span>
+    <span class="pilula alerta-forte" id="incidentes" hidden></span>
+    <button class="pilula alerta" id="publicacoes" hidden></button>
+    <button class="pilula" id="melhorias" hidden></button>
+    <span class="pilula" id="clima" hidden></span>
+    <span class="pilula" id="conexao">conectando…</span>
+    <button id="bOrdem" class="principal">Nova tarefa</button>
+    <button id="bMesa">Minha mesa</button>
+    <button id="bPapelada" title="Suas conversas com os agentes (antiga papelada)">Conversas</button>
+    <button id="bProjetos">Projetos</button>
+    <button id="bAgenda">Agenda</button>
+    <button id="bBusca" class="botao-busca" title="Buscar em tudo e pedir coisas (Ctrl+K)" aria-label="Buscar (Ctrl+K)">⌕</button>
+    <button id="bPainel" title="Painel com gráficos, planejamento e equipe (atalho: P)">Painel</button>
+    <button id="bConsumo">Consumo</button>
+    <button id="bAjustes" aria-haspopup="true">Ajustes</button>
+  </header>
+  <div class="palco" id="palco">
+    <aside class="lateral" id="lateral" aria-label="Agentes"></aside>
+    <section class="ficha" id="ficha" aria-live="polite"></section>
+    <section class="papelada" id="papelada" hidden aria-label="Conversas"></section>
+    <section class="ordem" id="ordem" hidden aria-label="Nova tarefa"></section>
+    <section class="extra" id="extra" hidden></section>
+    <div class="ajustes" id="ajustes" hidden>
+      <button id="bSom" aria-pressed="true">Som ligado</button>
+      <button id="bAmbiente" aria-pressed="false">Som de ambiente: desligado</button>
+      <button id="bNoite">Luz: automática</button>
+      <button id="bTelegram">Avisos no Telegram</button>
+      <button id="bEstrategista">Falar com o Estrategista</button>
+      <button id="bAprendizado">Melhorias da equipe</button>
+      <button id="bSala">Minha sala</button>
+      <button id="bSair">Sair</button>
+    </div>
+    <div class="toast" id="aviso" hidden role="status"></div>
+    <nav class="equipe" id="equipe" aria-label="Equipe do escritório"></nav>
+    <div class="dica">Arraste para girar · botão direito ou Shift para mover · role para zoom · clique num robô para detalhes ou num setor para mandar tarefa</div>
+  </div>
+</div>
+<script src="/vendor/three.min.js"></script>
+<script src="/vendor/GLTFLoader.js"></script>
+<script src="/vendor/SkeletonUtils.js"></script>
+<script src="/app.js"></script>
+<script src="/painel.js"></script>
+<script src="/busca.js"></script>
+</body>
+</html>
