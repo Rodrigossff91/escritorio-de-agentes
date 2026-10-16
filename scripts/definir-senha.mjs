@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 const DADOS = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'data');
 const N = 32768;
 
-function perguntar(texto, oculto) {
+let perguntar = function (texto, oculto) {
   return new Promise(ok => {
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
     if (oculto) rl._writeToOutput = s => { if (s.includes(texto)) process.stdout.write(s); };
@@ -16,6 +16,9 @@ function perguntar(texto, oculto) {
   });
 }
 
+// sem terminal (respostas vindas de um script): lê as três linhas de uma vez
+const linhas = process.stdin.isTTY ? null : (await new Promise(ok => { let d = ''; process.stdin.on('data', c => { d += c; }).on('end', () => ok(d.split('\n').map(x => x.trim()))); }));
+if (linhas) perguntar = async () => linhas.shift() || '';
 const usuario = await perguntar('Usuário: ');
 const senha = await perguntar('Senha (mínimo 10 caracteres): ', true);
 const confirma = await perguntar('Repita a senha: ', true);
