@@ -1,49 +1,4 @@
 {
-  "empresa": "Minha Empresa",
-  "setores": [
-    {
-      "id": "geral",
-      "nome": "Minha Empresa (geral)",
-      "cor": "#085041",
-      "pastas": [
-        "/home/voce/projetos"
-      ]
-    },
-    {
-      "id": "site",
-      "nome": "Site",
-      "cor": "#D85A30",
-      "pastas": [
-        "/home/voce/projetos/site"
-      ]
-    },
-    {
-      "id": "api",
-      "nome": "API",
-      "cor": "#185FA5",
-      "pastas": [
-        "/home/voce/projetos/api"
-      ],
-      "po": true
-    },
-    {
-      "id": "app",
-      "nome": "App",
-      "cor": "#0F6E56",
-      "pastas": [
-        "/home/voce/projetos/app"
-      ]
-    },
-    {
-      "id": "escritorio",
-      "nome": "Escritório",
-      "cor": "#444441",
-      "pastas": [
-        "/home/voce/escritorio-de-agentes"
-      ]
-    }
-  ],
-  "ocultos": [],
   "fusoHorario": "America/Sao_Paulo",
   "minutosAteIrEmbora": 0,
   "minutosAteTravado": 15,
@@ -315,7 +270,6 @@
       "instrucao": "Atue como engenheiro do próprio escritório de agentes: melhorias pequenas e seguras, sempre aprovadas pela dona."
     }
   ],
-  "origensPermitidas": [],
   "maxDeFolga": 40,
   "revisaoQA": true,
   "maxOrdens": 4,
@@ -373,34 +327,6 @@
       "hora": "08:00"
     }
   },
-  "servidores": [
-    {
-      "nome": "API",
-      "setor": "api",
-      "regra": "^api",
-      "tipo": "producao"
-    },
-    {
-      "nome": "Banco",
-      "setor": "api",
-      "regra": "postgres",
-      "tipo": "producao"
-    }
-  ],
-  "servidoresIgnorar": [],
-  "historico": {
-    "lojas": [],
-    "registros": [],
-    "setores": {}
-  },
-  "clima": {},
-  "raizProjetos": "",
-  "cofre": "",
-  "contas": {
-    "pessoal": ""
-  },
-  "pastasBackup": [],
-  "backupEscritorio": "",
   "departamentos": [
     {
       "id": "melhorias",
@@ -646,6 +572,25 @@
       ]
     },
     {
+      "id": "design",
+      "nome": "Design UX/UI",
+      "cor": "#ED93B1",
+      "membros": [
+        "design"
+      ],
+      "lider": "design",
+      "responsabilidades": [
+        "Olhar mensal na aparência dos produtos (telas confusas, botões mal colocados)",
+        "Até 3 sugestões visuais simples por mês, com antes/depois em palavras"
+      ],
+      "rotina": {
+        "ativo": true,
+        "freq": "mensal",
+        "dia": 20,
+        "hora": "10:00"
+      }
+    },
+    {
       "id": "academia",
       "nome": "Academia",
       "cor": "#7F77DD",
@@ -684,5 +629,109 @@
         "hora": "17:00"
       }
     }
-  ]
+  ],
+  "ajuda": [
+    {
+      "pergunta": "O que é essa VPS que aparece nos avisos?",
+      "resposta": "VPS é o computador na internet (um servidor alugado) onde os sites e sistemas ficam no ar, funcionando 24 horas. Quando um aviso fala em \"VPS\", é sobre esse computador: se ele está cheio, lento ou com algum serviço parado."
+    },
+    {
+      "pergunta": "Para que serve o botão \"Aprovar\" quando um agente está esperando?",
+      "resposta": "Quando um boneco vai para a Diretoria com um \"!\", é porque ele fez uma pergunta ou precisa da sua decisão antes de continuar (por exemplo: \"pode publicar?\" ou \"qual dessas opções?\"). Aprovar libera o agente para seguir com o que ele propôs; você também pode responder pelo chat em vez de só aprovar."
+    },
+    {
+      "pergunta": "O que significa a sala de reunião?",
+      "resposta": "É onde ficam os agentes do tipo \"Plan\": eles só estão planejando o trabalho (pensando no passo a passo), ainda não estão escrevendo código. Quando o plano fica pronto, o agente principal continua a tarefa."
+    },
+    {
+      "pergunta": "O que é o boné laranja num boneco?",
+      "resposta": "É um subagente: um ajudante temporário que o especialista chamou para resolver uma parte específica da tarefa (por exemplo, pedir uma revisão de segurança). Quando termina, ele some e o especialista principal continua."
+    },
+    {
+      "pergunta": "Como eu publico algo que já está pronto?",
+      "resposta": "Na aba \"Publicar\", aparecem os pedidos esperando você apertar o botão. Antes de publicar, o DevOps confere o estado do sistema, as migrations (mudanças no banco de dados) e se há um backup recente; depois de publicar, ele verifica se tudo ficou no ar certinho."
+    },
+    {
+      "pergunta": "O que fazer se um agente ficar travado (parado)?",
+      "resposta": "Um monitor vermelho e fumaça aparecem no boneco quando ele passa muito tempo sem fazer nada. Normalmente volta a andar sozinho; se continuar travado, você pode abrir o chat dele e mandar \"Corrigir rumo\" para interromper e dar uma nova instrução."
+    }
+  ],
+  "regras": {
+    "textos": [],
+    "protegidos": []
+  },
+  "empresa": "Minha Empresa",
+  "raizProjetos": "",
+  "cofre": "",
+  "contas": {
+    "pessoal": ""
+  },
+  "pastasBackup": [],
+  "backupEscritorio": "",
+  "origensPermitidas": [],
+  "setores": [
+    {
+      "id": "geral",
+      "nome": "Minha Empresa (geral)",
+      "cor": "#085041",
+      "pastas": [
+        "/home/voce/projetos"
+      ]
+    },
+    {
+      "id": "site",
+      "nome": "Site",
+      "cor": "#D85A30",
+      "pastas": [
+        "/home/voce/projetos/site"
+      ]
+    },
+    {
+      "id": "api",
+      "nome": "API",
+      "cor": "#185FA5",
+      "pastas": [
+        "/home/voce/projetos/api"
+      ],
+      "po": true
+    },
+    {
+      "id": "app",
+      "nome": "App",
+      "cor": "#0F6E56",
+      "pastas": [
+        "/home/voce/projetos/app"
+      ]
+    },
+    {
+      "id": "escritorio",
+      "nome": "Escritório",
+      "cor": "#444441",
+      "pastas": [
+        "/home/voce/escritorio-de-agentes"
+      ]
+    }
+  ],
+  "servidores": [
+    {
+      "nome": "API",
+      "setor": "api",
+      "regra": "^api",
+      "tipo": "producao"
+    },
+    {
+      "nome": "Banco",
+      "setor": "api",
+      "regra": "postgres",
+      "tipo": "producao"
+    }
+  ],
+  "servidoresIgnorar": [],
+  "historico": {
+    "lojas": [],
+    "registros": [],
+    "setores": {}
+  },
+  "clima": {},
+  "ocultos": []
 }

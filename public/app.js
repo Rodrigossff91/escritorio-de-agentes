@@ -392,7 +392,7 @@ let corredoresV = [];           // x dos corredores verticais
 let rua = { x: 0, z: 0 };
 let predio = null;              // grupo reconstruído quando a lista de setores muda
 let assinaturaSetores = '';
-let recepcionista = null, quadro = null;
+let recepcionista = null, quadro = null, placarLed = null, ultimoPlacarLed = 0;
 
 function vaga(x, z, rot, pose, extra) { return { x, z, rot, pose, quem: null, ...extra }; }
 
@@ -456,6 +456,40 @@ function desenharTela(m, modo, titulo) {
   }
   m.tela.material.color.set(modo === 'off' ? '#3a3a3a' : '#ffffff');
   m.tex.needsUpdate = true;
+}
+
+// placar de LED da recepção: incidentes, publicações para aprovar e entregas do dia, num relance
+function montarPlacarLed(g, x, y, z) {
+  const cv = document.createElement('canvas'); cv.width = 480; cv.height = 220;
+  const tex = new THREE.CanvasTexture(cv);
+  caixa(0.12, y - 0.5, 0.12, '#2C2C2A', x, (y - 0.5) / 2, z + 0.5, g);
+  caixa(1.9, 1.0, 0.1, '#111318', x, y, z, g);
+  const tela = peca(new THREE.PlaneGeometry(1.72, 0.84), new THREE.MeshBasicMaterial({ map: tex }), x, y, z + 0.06, g, false);
+  return { cv, tex, tela };
+}
+function desenharPlacarLed(forcar) {
+  if (!placarLed || !ultimo) return;
+  if (!forcar && Date.now() - ultimoPlacarLed < 4000) return;
+  ultimoPlacarLed = Date.now();
+  const incs = (ultimo.incidentes || []).filter(i => i.status === 'aberto').length;
+  const pend = (ultimo.deploys || []).filter(d => d.status === 'aguardando').length + (ultimo.previas || []).filter(p => p.status === 'ativa').length;
+  const entregas = ultimo.hoje?.tarefas || 0;
+  const blocos = [
+    [incs, incs === 1 ? 'incidente' : 'incidentes', incs ? '#E24B4A' : '#5DCAA5'],
+    [pend, 'para aprovar', pend ? '#FAC775' : '#5DCAA5'],
+    [entregas, entregas === 1 ? 'entrega hoje' : 'entregas hoje', '#85B7EB'],
+  ];
+  const x = placarLed.cv.getContext('2d');
+  x.fillStyle = '#0b0d12'; x.fillRect(0, 0, 480, 220);
+  x.textAlign = 'center';
+  blocos.forEach(([val, rot, cor], i) => {
+    const cx = 80 + i * 160;
+    if (i) { x.strokeStyle = '#2C2C2A'; x.lineWidth = 2; x.beginPath(); x.moveTo(cx - 80, 20); x.lineTo(cx - 80, 200); x.stroke(); }
+    x.fillStyle = cor; x.font = '700 62px system-ui, sans-serif'; x.fillText(String(val), cx, 110);
+    x.fillStyle = '#B4B2A9'; x.font = '500 19px system-ui, sans-serif'; x.fillText(rot, cx, 150);
+  });
+  x.textAlign = 'left';
+  placarLed.tex.needsUpdate = true;
 }
 
 function planta(g, x, z, sala) {
@@ -614,6 +648,9 @@ function construir(estado) {
   recepcionista.g.position.set(rec.cx - 2.6, 0, rec.cz - 0.7);
   recepcionista.proxEmote = 4;
   predio.add(recepcionista.g);
+  // placar de LED perto do balcão: incidentes, publicações para aprovar e entregas do dia, ao vivo
+  placarLed = montarPlacarLed(predio, rec.cx - 0.8, 2.0, rec.cz - 0.6);
+  desenharPlacarLed(true);
   for (const dz of [-1.8, 1.6]) montarMesa(rec, rec.cx + 2.6, rec.cz + dz - 0.4);
   planta(predio, rec.cx - L / 2 + 0.8, rec.cz + P / 2 - 0.8, rec);
   // estante de troféus: um por conquista (até 12)
@@ -1269,7 +1306,7 @@ function acaoLegivel(acao) {
 // ---------- dados do servidor ----------
 let ultimo = null, esperandoAntes = 0, primeiraFoto = true;
 const ordensAvisadas = new Set(), ordensVistas = new Set();
-let incidentesAntes = 0;
+let incidentesAntes = 0, pubsAntes = 0;
 let versaoRel = 0, conquistaVista = null;
 
 function aplicar(estado) {
@@ -1380,6 +1417,13 @@ function aplicar(estado) {
   const melh = (estado.aprendizado?.propostas || []).filter(x => x.status === 'aguardando').length;
   $('melhorias').hidden = !melh;
   $('melhorias').textContent = melh === 1 ? '1 melhoria para aprovar' : `${melh} melhorias para aprovar`;
+  // caixa de aprovações: um botão só para tudo o que espera a dona
+  queueMicrotask(() => {
+    const n = window.contarAprovacoes?.() || 0;
+    $('paraAprovar').hidden = !n; $('paraAprovar').textContent = n === 1 ? '✓ 1 para aprovar' : `✓ ${n} para aprovar`;
+    ['publicacoes', 'pedConvidados', 'ideiasCresc', 'melhorias'].forEach(id => { $(id).hidden = true; });
+    window.aprovacoesAtualizar?.();
+  });
   const nc = (estado.propostasMelhoria || []).filter(p => p.status === 'aguardando').length;
   $('ideiasCresc').hidden = !nc;
   $('ideiasCresc').textContent = nc === 1 ? '1 ideia de crescimento' : `${nc} ideias de crescimento`;
@@ -1389,10 +1433,18 @@ function aplicar(estado) {
   const pubs = (estado.deploys || []).filter(d => d.status === 'aguardando').length;
   $('publicacoes').hidden = !pubs;
   $('publicacoes').textContent = pubs === 1 ? '1 publicação esperando você' : `${pubs} publicações esperando você`;
+  if (pubs > pubsAntes && !primeiraFoto) {
+    const d = (estado.deploys || []).find(x => x.status === 'aguardando');
+    notificarDesktop('Publicação esperando o botão Publicar', d ? curto(d.resumo, 140) : 'Tem uma publicação nova esperando você.', () => $('publicacoes').click());
+  }
+  pubsAntes = pubs;
   const incs = (estado.incidentes || []).filter(i => i.status === 'aberto');
   $('incidentes').hidden = !incs.length;
   $('incidentes').textContent = incs.length === 1 ? '1 incidente' : `${incs.length} incidentes`;
-  if (incs.length > incidentesAntes && !primeiraFoto) aviso(`Incidente: ${incs[0].titulo}. ${incs[0].aviso || 'O DevOps foi investigar.'}`, null, [330, 247, 330]);
+  if (incs.length > incidentesAntes && !primeiraFoto) {
+    aviso(`Incidente: ${incs[0].titulo}. ${incs[0].aviso || 'O DevOps foi investigar.'}`, null, [330, 247, 330]);
+    notificarDesktop('Incidente novo no escritório', incs[0].titulo, () => abrirPapelada());
+  }
   incidentesAntes = incs.length;
   $('contTrabalhando').textContent = trab + ' trabalhando';
   $('contEsperando').textContent = esp + ' esperando você';
@@ -1421,6 +1473,7 @@ function aplicar(estado) {
   $('clima').hidden = !cl;
   if (cl) $('clima').textContent = `${Math.round(cl.temp)}° ${descreverClima(cl.codigo)}${cl.cidade ? ' · ' + cl.cidade : ''}`;
   desenharQuadro(primeiraFoto);
+  desenharPlacarLed(primeiraFoto);
   // ao abrir a página, cada um já aparece no seu lugar (sem desfile pela porta)
   if (primeiraFoto) for (const a of avatares.values()) {
     if (!a.alvo || a.depois === 'sumir') continue;
@@ -1857,6 +1910,17 @@ function desenharExtra() {
         <button data-agenda-alternar="${esc(a.id)}">${a.ativo ? 'Pausar' : 'Ativar'}</button><button data-agenda-apagar="${esc(a.id)}">Apagar</button></div>`).join('')
         : '<div class="vazio">Nada agendado ainda.</div>') +
       `<div class="botoes"><button class="principal" data-acao="nova-agendada">Agendar tarefa</button></div>` + rotinasHTML();
+  } else if (extraAberto === 'regras') {
+    const rg = ultimo.regras || { textos: [], protegidos: [] };
+    const projs = (ultimo.setores || []).filter(s => !['geral', 'escritorio'].includes(s.id));
+    el.innerHTML = cabecalhoExtra('Regras do escritório') +
+      `<p class="nota">As regras valem para <b>todos os agentes</b> do escritório. Os projetos protegidos têm uma <b>trava de verdade</b>: nenhum agente consegue alterar arquivos deles, a não ser numa tarefa que <b>você</b> mandou para aquele projeto. Ler continua liberado. Rotinas, o setor de Crescimento, convidados e tarefas de outros projetos ficam bloqueados. Suas sessões no app do Claude não são afetadas.</p>
+      <h3>Projetos protegidos</h3>
+      <div class="regras-proj">${projs.map(s => `<label class="${rg.protegidos.includes(s.id) ? 'on' : ''}"><input type="checkbox" data-regra-proj="${esc(s.id)}" ${rg.protegidos.includes(s.id) ? 'checked' : ''}><i style="background:${esc(s.cor)}"></i>${esc(s.nome)}<small>${rg.protegidos.includes(s.id) ? 'protegido' : 'livre'}</small></label>`).join('')}</div>
+      <h3>Regras escritas</h3>
+      <ul class="regras-txt">${rg.textos.map((t, i) => `<li><span>${esc(t)}</span><button data-regra-tirar="${i}" aria-label="Tirar regra">×</button></li>`).join('') || '<li class="vazio">Nenhuma regra escrita ainda.</li>'}</ul>
+      <form id="formRegra" class="form-regra"><input name="regra" maxlength="300" placeholder="Ex.: sempre peça confirmação antes de apagar dados" aria-label="Nova regra"><button class="principal" type="submit">Acrescentar</button></form>
+      <p class="nota">Sempre vale também: ao perguntar ou pedir aprovação, o agente diz de qual projeto está falando.</p>`;
   } else if (extraAberto === 'convidados') {
     const cs = ultimo.convites || [], pend = cs.flatMap(c => (c.pendentes || []).filter(p => p.status === 'aguardando').map(p => ({ ...p, c })));
     const projetosC = (ultimo.setores || []).filter(x => !['geral', 'escritorio'].includes(x.id));
@@ -2035,8 +2099,38 @@ $('bTelegram').onclick = () => abrirExtra('telegram');
 $('bSala').onclick = () => abrirExtra('sala');
 $('bAprendizado').onclick = () => abrirExtra('aprendizado');
 $('bConvidados').onclick = () => abrirExtra('convidados');
+$('bRegras').onclick = () => abrirExtra('regras');
+async function salvarRegrasTela(mudar) {
+  const rg = JSON.parse(JSON.stringify(ultimo?.regras || { textos: [], protegidos: [] }));
+  mudar(rg);
+  const r = await postar('/api/regras', rg);
+  if (r.ok) { ultimo.regras = rg; desenharExtra(); }
+  return r.ok;
+}
+$('extra').addEventListener('change', async e => {
+  const c = e.target.closest('[data-regra-proj]');
+  if (!c) return;
+  const id = c.dataset.regraProj, nome = (ultimo.setores || []).find(s => s.id === id)?.nome || id;
+  if (await salvarRegrasTela(rg => { rg.protegidos = c.checked ? [...new Set([...rg.protegidos, id])] : rg.protegidos.filter(x => x !== id); }))
+    aviso(c.checked ? `${nome} protegido: só muda quando você mandar uma tarefa para ele.` : `${nome} liberado.`, null, [523, 659]);
+});
+$('extra').addEventListener('submit', async e => {
+  const f = e.target.closest('#formRegra');
+  if (!f) return;
+  e.preventDefault();
+  const t = f.regra.value.trim();
+  if (t.length < 3) return;
+  if (await salvarRegrasTela(rg => { rg.textos.push(t); })) aviso('Regra acrescentada. Vale para todos os agentes a partir da próxima tarefa.');
+});
+$('extra').addEventListener('click', async e => {
+  const b = e.target.closest('[data-regra-tirar]');
+  if (b) await salvarRegrasTela(rg => { rg.textos.splice(Number(b.dataset.regraTirar), 1); });
+});
 $('pedConvidados').onclick = () => abrirExtra('convidados');
-$('ideiasCresc').onclick = () => window.abrirPainel?.('empresa');
+$('ideiasCresc').onclick = () => window.abrirAprovacoes?.('proposta');
+$('paraAprovar').onclick = () => window.abrirAprovacoes?.('tudo');
+$('contEsperando').style.cursor = 'pointer';
+$('contEsperando').onclick = () => window.abrirAprovacoes?.('pergunta');
 let linkConvite = null;
 $('extra').addEventListener('submit', async e => {
   const f = e.target.closest('#formConvite');
@@ -2149,7 +2243,7 @@ async function abrirPapelada(id) {
   const alvo = r ? (r.sessao || r.id) : (id || relatoriosCache.find(x => !x.lido)?.sessao || relSel || conversas()[0]?.chave);
   if (alvo) verConversa(alvo);
 }
-function fecharPapelada() { papeladaAberta = false; modoLado = false; chatsAbertos = []; $('papelada').classList.remove('dividido'); $('papelada').hidden = true; $('papelada').classList.remove('lado'); $('lateral').hidden = false; }
+function fecharPapelada() { if (window.speechSynthesis) speechSynthesis.cancel(); falandoResumoId = null; papeladaAberta = false; modoLado = false; chatsAbertos = []; $('papelada').classList.remove('dividido'); $('papelada').hidden = true; $('papelada').classList.remove('lado'); $('lateral').hidden = false; }
 let modoLado = false, chatPendente = null;
 // clique num robô: abre a conversa com ele no painel lateral
 async function abrirChatAgente(a) {
@@ -2178,6 +2272,29 @@ function verConversa(chave) {
 }
 const verRelatorio = id => { const r = relatoriosCache.find(x => x.id === id); verConversa(r ? (r.sessao || r.id) : id); };
 
+// ---------- ouvir o resumo da manhã em voz alta (leitura de voz do próprio navegador) ----------
+let falandoResumoId = null;
+function textoResumoFala(r) {
+  const sp = r?.simples;
+  if (!sp) return '';
+  return [sp.titulo, sp.resumo, sp.resultado?.texto,
+    sp.feito?.length ? 'O que foi feito: ' + sp.feito.join('. ') : '',
+    sp.proximos?.length ? 'Plano de hoje: ' + sp.proximos.join('. ') : ''].filter(Boolean).join('. ');
+}
+function alternarOuvirResumo(botao, id) {
+  if (!window.speechSynthesis) return;
+  const resetar = () => { falandoResumoId = null; const b = document.querySelector(`[data-ouvir-resumo="${id}"]`); if (b) { b.textContent = '🔊 Ouvir'; b.setAttribute('aria-pressed', 'false'); } };
+  if (falandoResumoId === id) { speechSynthesis.cancel(); resetar(); return; }
+  speechSynthesis.cancel();
+  const texto = textoResumoFala(relatoriosCache.find(x => x.id === id));
+  if (!texto) return;
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang = 'pt-BR';
+  u.onend = resetar; u.onerror = resetar;
+  falandoResumoId = id;
+  speechSynthesis.speak(u);
+  botao.textContent = '⏸ Parar'; botao.setAttribute('aria-pressed', 'true');
+}
 function bolhaAgente(r, nomeSala) {
   const sp = r.simples, st = sp?.resultado?.status || 'ok';
   const rv = r.revisao, av = r.avaliacao;
@@ -2191,6 +2308,7 @@ function bolhaAgente(r, nomeSala) {
     (sp?.bloqueio ? `<div class="bloqueio"><b>O modo automático bloqueou</b><p>${md(sp.bloqueio, true)}</p><small>Se essa parte for necessária, faça pelo app do Claude, onde você pode liberar na hora.</small></div>` : '');
   return `<div class="msg agente">${avatarHTML(r.agente, papelDe(r).cor)}<div class="bolha">${selos ? `<div class="selos">${selos}</div>` : ''}
       ${sp ? `<b class="tit">${esc(sp.titulo)}</b><p class="resumo-msg">${md(sp.resumo, true)}</p>
+        ${r.sessao === 'resumo-da-manha' && window.speechSynthesis ? `<button type="button" class="ouvir-resumo" data-ouvir-resumo="${esc(r.id)}" aria-pressed="false">🔊 Ouvir</button>` : ''}
         ${sp.resultado.texto ? `<p class="res ${st}">${md(sp.resultado.texto, true)}</p>` : ''}
         ${sp.feito.length ? `<div class="secao"><span class="rot">O que eu fiz</span><ul class="itens">${sp.feito.map(x => `<li>${md(x, true)}</li>`).join('')}</ul></div>` : ''}
         ${sp.proximos.length ? `<div class="secao"><span class="rot">Próximos passos</span><ul class="itens">${sp.proximos.map(x => `<li>${md(x, true)}</li>`).join('')}</ul></div>` : ''}`
@@ -2581,6 +2699,8 @@ $('papelada').addEventListener('click', async e => {
   if (cont) { fecharPapelada(); abrirOrdem(null, null, cont.dataset.continuar); return; }
   const rz = e.target.closest('[data-resumir]');
   if (rz) { rz.disabled = true; rz.textContent = 'Gerando…'; await postar(`/api/relatorios/${rz.dataset.resumir}/resumir`); return; }
+  const ou = e.target.closest('[data-ouvir-resumo]');
+  if (ou) { alternarOuvirResumo(ou, ou.dataset.ouvirResumo); return; }
   if (acao === 'todos') { await postar('/api/relatorios/todos/lido'); relatoriosCache.forEach(r => { r.lido = true; }); return desenharPapelada(); }
   const item = e.target.closest('.rel[data-conversa]');
   if (item) { buscaFocada = false; verConversa(item.dataset.conversa); }
@@ -2602,6 +2722,28 @@ function aviso(texto, aoClicar, notas) {
   if (notas) tocar(notas);
 }
 $('aviso').onclick = () => { $('aviso').hidden = true; if (acaoAviso) acaoAviso(); };
+
+// ---------- aviso no computador (Notification nativa do navegador) ----------
+function atualizarBotaoNotificacoes() {
+  const b = $('bNotificacoes');
+  if (!b) return;
+  if (!('Notification' in window)) { b.hidden = true; return; }
+  if (Notification.permission === 'granted') { b.textContent = 'Avisos ativados'; b.disabled = true; }
+  else if (Notification.permission === 'denied') { b.textContent = 'Avisos bloqueados pelo navegador'; b.disabled = true; }
+  else { b.textContent = 'Ativar avisos'; b.disabled = false; }
+}
+if ($('bNotificacoes')) {
+  atualizarBotaoNotificacoes();
+  $('bNotificacoes').onclick = () => { Notification.requestPermission().then(atualizarBotaoNotificacoes); };
+}
+// mostra um aviso do sistema operacional (funciona minimizado ou com a aba em segundo plano); só some quando ela clica
+function notificarDesktop(titulo, corpo, aoClicar) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  try {
+    const n = new Notification(titulo, { body: corpo, icon: '/favicon.svg', tag: titulo });
+    n.onclick = () => { window.focus(); n.close(); if (aoClicar) aoClicar(); };
+  } catch { /* navegador recusou mostrar agora, sem problema */ }
+}
 
 let som = true, audio = null, ambiente = false, proxClique = 0;
 try { ambiente = localStorage.getItem('escritorio-ambiente') === '1'; } catch { /* sem armazenamento */ }
@@ -2707,6 +2849,39 @@ $('bMesa').onclick = () => {
   if (vista.alvoZoom > 2.5) { vista.alvoFoco.set(0, 0, 0); vista.alvoZoom = 1.15; return; }
   vista.alvoFoco.set(d.cx, 0, d.cz + 1); vista.alvoZoom = 3.2;
 };
+
+// ---------- mapa rápido do prédio: lista de salas, clique leva a câmera até lá ----------
+function desenharMapa() {
+  const comuns = ['recepcao', 'copa', 'diretoria', 'reuniao', 'lazer', 'datacenter', 'painel'].map(id => salas.get(id)).filter(Boolean);
+  const grupos = [
+    ['Projetos', [...salas.values()].filter(s => s.setor)],
+    ['Setores', [...salas.values()].filter(s => s.departamento)],
+    ['Comuns', comuns],
+  ].filter(([, lista]) => lista.length);
+  $('mapa').innerHTML = grupos.map(([titulo, lista]) => `
+    <div class="mapa-grupo">
+      <h4>${esc(titulo)}</h4>
+      ${lista.map(s => `<button class="mapa-sala" data-sala="${esc(s.id)}"><span class="mapa-cor" style="background:${esc(s.cor)}"></span>${esc(s.nome)}</button>`).join('')}
+    </div>`).join('') || '<div class="mapa-grupo"><h4>Mapa</h4>Nenhuma sala pronta ainda.</div>';
+}
+$('mapa').onclick = e => {
+  const b = e.target.closest('.mapa-sala');
+  const s = b && salas.get(b.dataset.sala);
+  if (!s) return;
+  vista.alvoFoco.set(s.cx, 0, s.cz + 1); vista.alvoZoom = 3.2;
+  $('mapa').hidden = true;
+};
+$('bMapa').onclick = e => {
+  e.stopPropagation();
+  const m = $('mapa');
+  if (m.hidden) desenharMapa();
+  m.hidden = !m.hidden;
+  if (!m.hidden) {
+    const r = e.currentTarget.getBoundingClientRect();
+    m.style.left = Math.min(r.left, innerWidth - 300) + 'px';
+  }
+};
+addEventListener('click', e => { if (!$('mapa').hidden && !e.target.closest('#mapa, #bMapa')) $('mapa').hidden = true; });
 
 // ---------- animação ----------
 const seg = () => performance.now() / 1000;
@@ -2825,7 +3000,7 @@ function atualizar(a, dt) {
     a.balao.userData.fundo = avisoBalao ? '#FAEEDA' : '#ffffff';
     escreverPlaca(a.balao, texto);
   }
-  a.balao.visible = !!texto && (a.modo !== 'andando' || a.sub || a.entregando || selecionado === a);
+  a.balao.visible = !!texto && (a.modo !== 'andando' || a.sub || a.entregando || a.dados.missao || selecionado === a);
   const pzAtual = a.excursao?.fase === 'la' ? a.excursao.ida.pose : a.alvo?.pose;
   const sentado = a.modo === 'parado' && ['mesa', 'reuniao', 'esperando', 'pufe'].includes(pzAtual);
   a.balao.position.set(g.position.x, (sentado ? 3.3 : 3.75) * a.escala, g.position.z);

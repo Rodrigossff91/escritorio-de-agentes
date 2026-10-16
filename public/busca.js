@@ -8,13 +8,37 @@
     <div class="bg-janela" role="dialog" aria-modal="true" aria-label="Busca geral">
       <div class="bg-topo"><span class="bg-lupa" aria-hidden="true">⌕</span>
         <input id="bgTexto" autocomplete="off" spellcheck="false" placeholder="Procure ou peça algo… ex.: “devops ver o certificado do site”, “nome do projeto”, “ideia: …”">
+        <button type="button" id="bgMic" class="bg-mic" title="Falar o pedido" aria-label="Falar o pedido" hidden>🎤</button>
         <kbd>Esc</kbd></div>
       <div class="bg-lista" id="bgLista" role="listbox"></div>
       <div class="bg-rodape"><label>Projeto das ações <select id="bgSetor"></select></label><span><kbd>↑</kbd><kbd>↓</kbd> escolher · <kbd>Enter</kbd> fazer</span></div>
     </div>`;
   document.body.appendChild(caixa);
-  const entrada = caixa.querySelector('#bgTexto'), listaEl = caixa.querySelector('#bgLista'), selSetor = caixa.querySelector('#bgSetor');
+  const entrada = caixa.querySelector('#bgTexto'), listaEl = caixa.querySelector('#bgLista'), selSetor = caixa.querySelector('#bgSetor'), botaoMic = caixa.querySelector('#bgMic');
   let itens = [], sel = 0, conversasAchadas = [], timer = null, setores = null, ultimaQ = '';
+
+  // microfone: só aparece se o navegador tiver a API de reconhecimento de fala
+  const MotorFala = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let reconhecimento = null, ouvindo = false;
+  function pararEscuta() { ouvindo = false; botaoMic.classList.remove('ouvindo'); botaoMic.title = 'Falar o pedido'; }
+  if (MotorFala) {
+    botaoMic.hidden = false;
+    reconhecimento = new MotorFala();
+    reconhecimento.lang = 'pt-BR';
+    reconhecimento.interimResults = false;
+    reconhecimento.maxAlternatives = 1;
+    reconhecimento.onresult = e => {
+      const texto = e.results?.[0]?.[0]?.transcript?.trim();
+      if (texto) { entrada.value = texto; sel = 0; montar(); entrada.focus(); }
+    };
+    reconhecimento.onerror = pararEscuta;
+    reconhecimento.onend = pararEscuta;
+    botaoMic.addEventListener('click', () => {
+      if (ouvindo) { reconhecimento.stop(); return; }
+      try { reconhecimento.start(); ouvindo = true; botaoMic.classList.add('ouvindo'); botaoMic.title = 'Ouvindo… toque para parar'; }
+      catch { /* já estava ouvindo ou sem permissão */ }
+    });
+  }
 
   const norm = t => String(t || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toLowerCase();
   const contaPadrao = () => { try { return localStorage.getItem('escritorio-conta') || 'pessoal'; } catch { return 'pessoal'; } };
@@ -28,7 +52,7 @@
     try { const u = localStorage.getItem('painel-setor'); if (u && setores.some(x => x.id === u)) selSetor.value = u; } catch { /* ignora */ }
     montar(); entrada.focus();
   }
-  function fecharBusca() { caixa.hidden = true; }
+  function fecharBusca() { caixa.hidden = true; if (ouvindo) reconhecimento.stop(); }
   window.abrirBusca = abrirBusca;
 
   // lê "mandar para devops: texto", "devops texto", "pro kauã texto"

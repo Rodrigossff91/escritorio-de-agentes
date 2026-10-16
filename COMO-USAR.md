@@ -65,6 +65,8 @@ Abra o Claude Code em qualquer pasta de projeto, como sempre faz. No escritório
 
 Arraste para girar a câmera, arraste com o botão direito (ou segurando Shift) para andar, e use a roda do mouse para aproximar. Clicar numa sala abre uma tarefa nova para aquele projeto.
 
+Se o prédio estiver grande e você não souber para onde arrastar, use o botão **Mapa**, ao lado de "Minha mesa": ele mostra a lista de todas as salas (Projetos, Setores e Comuns) e, ao clicar numa, a câmera pula direto para lá.
+
 ## 4. Conversar com um agente
 
 Clique em qualquer robô: o chat dele abre do lado. Você vê **o que ele está fazendo agora**, passo a passo,
@@ -86,7 +88,7 @@ Três jeitos:
 
 1. **Nova tarefa** (botão verde): escolha o projeto, escreva o pedido e mande. O escritório escolhe o especialista.
 2. **Painel** (tecla **P**): escreva no campo do topo e aperte **Mandar**, ou **Guardar ideia** para depois.
-3. **Busca geral** (**Ctrl+K**): escreva `devops ver o certificado do site` e aperte Enter para mandar direto para o DevOps.
+3. **Busca geral** (**Ctrl+K**): escreva `devops ver o certificado do site` e aperte Enter para mandar direto para o DevOps. Se o navegador suportar, aparece um botão de microfone 🎤 ao lado do campo para falar o pedido em vez de digitar (útil no celular).
 
 As tarefas rodam com a sua assinatura do Claude, no máximo 4 ao mesmo tempo (o resto espera na fila).
 
@@ -124,6 +126,7 @@ e os relatórios chegam nas **Conversas** (Painel → **Empresa** mostra tudo e 
 | Parcerias | editais, aceleradoras e parceiros | todo dia 10 |
 | Produto | roadmap do mês | todo dia 1 |
 | Segurança | auditoria de segredos e rotas sem proteção | todo dia 15 |
+| Design UX/UI | até 3 sugestões visuais simples por mês, com antes/depois em palavras | todo dia 20 |
 | Academia | plano de estudos a partir do que foi feito na semana | todo domingo |
 | Comunidade | ideias e rascunhos de posts técnicos | toda quinta |
 | Vendas, Jurídico, Suporte, Dados, Qualidade, Documentação | sob demanda | — |
@@ -148,11 +151,11 @@ Puxe a aba **PAINEL** na borda direita (ou aperte **P**).
 | --- | --- |
 | Visão geral | números do dia, entregas por dia, agentes trabalhando e projetos mais ativos |
 | Planejamento | **metas** com prazo e passos, **ideias** para depois, quadro do trabalho e próximos 7 dias |
-| Projetos | ficha de cada projeto: saúde, quem está trabalhando, últimas entregas |
+| Projetos | ficha de cada projeto: saúde, quem está trabalhando, últimas entregas. Clique na estrela para fixar um projeto no topo da lista |
 | Publicações | histórico do que foi ao ar, com pedido de volta de versão |
 | Equipe | especialistas e reuniões |
-| Infra | memória, disco e swap do servidor, containers, rotinas e os últimos avisos técnicos (até 5) |
-| Atividade | linha do tempo das últimas 48 horas |
+| Infra | memória, disco e swap do servidor, containers com uma frase simples do que cada sistema faz, rotinas e os últimos avisos técnicos (até 5) |
+| Atividade | linha do tempo das últimas 48 horas, com busca por texto para achar algo rápido (nome de projeto ou palavra do pedido) |
 
 Num passo de meta, aperte **Mandar**: ele vira tarefa e é marcado como feito sozinho quando a equipe entrega.
 
@@ -165,6 +168,10 @@ Os agentes **não conseguem** publicar sozinhos: um gancho bloqueia `git push`, 
 3. Você aperta **Publicar**. O DevOps confere estado, migrations e backup, publica e verifica no ar.
 
 Mudou alguma tela? O agente pode subir uma **prévia** (`escritorio-previa`) com um link para você ver antes.
+
+Quer saber na hora, mesmo com o escritório minimizado ou em outra aba? Clique em **Ativar avisos**, na barra de cima, e
+autorize quando o navegador perguntar. A partir daí você recebe um aviso do próprio computador sempre que surgir um
+incidente novo ou uma publicação nova esperando o botão Publicar; clicar no aviso volta para a tela do escritório.
 
 ## 10. Convidar um amigo para um projeto
 
@@ -198,7 +205,7 @@ Configure horários em `rotinas` no `config.json`:
 | Rotina | Padrão | O que faz |
 | --- | --- | --- |
 | Ronda da produção | todo dia 07:00 | DevOps olha containers, disco, memória, backups e certificados (só olha) |
-| Resumo da manhã | todo dia 08:00 | ontem, o que espera você, saúde e plano do dia |
+| Resumo da manhã | todo dia 08:00 | ontem, o que espera você, saúde e plano do dia (tem botão "🔊 Ouvir" para escutar em voz alta, se o navegador suportar) |
 | Vigia | a cada 5 min | se um container de produção cair, abre um incidente e o DevOps investiga |
 | Memorando estratégico | dia 1 de cada mês | análise da empresa pelo Estrategista |
 | Melhorias da equipe | toda sexta | especialistas propõem ajustes nos manuais |

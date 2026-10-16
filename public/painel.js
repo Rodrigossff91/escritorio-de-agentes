@@ -32,14 +32,17 @@
     equipe: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.6-3.4 3.2-5.5 6.5-5.5s5.9 2.1 6.5 5.5"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.5c2.4.2 4 1.8 4.5 4.5"/>',
     infra: '<rect x="3" y="4" width="18" height="7" rx="1.5"/><rect x="3" y="13" width="18" height="7" rx="1.5"/><path d="M7 7.5h.01M7 16.5h.01M11 7.5h6M11 16.5h6"/>',
     atividade: '<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    ajuda: '<circle cx="12" cy="12" r="9"/><path d="M9.3 9.5a2.7 2.7 0 1 1 4.6 2c-.6.6-1.4 1-1.9 1.6-.3.3-.4.7-.4 1.1"/><path d="M12 17.3h.01"/>',
   };
-  const SECOES = [['geral', 'Geral'], ['atividade', 'Atividade'], null, ['plano', 'Plano'], ['projetos', 'Projetos'], ['publicacoes', 'Publicar'], null, ['empresa', 'Empresa'], ['financeiro', 'Finanças'], ['equipe', 'Equipe'], null, ['infra', 'Infra']];
+  const SECOES = [['geral', 'Geral'], ['atividade', 'Atividade'], null, ['plano', 'Plano'], ['projetos', 'Projetos'], ['publicacoes', 'Publicar'], null, ['empresa', 'Empresa'], ['financeiro', 'Finanças'], ['equipe', 'Equipe'], null, ['infra', 'Infra'], ['ajuda', 'Ajuda']];
   el.querySelector('#trilho').innerHTML = SECOES.map(x => x ? `<button role="tab" data-aba="${x[0]}" title="${x[1]}"><svg viewBox="0 0 24 24" aria-hidden="true">${ICONES[x[0]]}</svg><span>${x[1]}</span></button>` : '<hr>').join('');
   try { if (localStorage.getItem('painel-largo') === '1') el.classList.add('larga'); } catch { /* ignora */ }
 
   let timerEntrada = null, ultimoHtml = '', ultimaAba = '';
-  let aberta = false, aba = 'geral', dados = null, buscando = false, filtroEquipe = '', filtroAtiv = 'tudo';
+  let aberta = false, aba = 'geral', dados = null, buscando = false, filtroEquipe = '', filtroAtiv = 'tudo', filtroTextoAtiv = '';
   let pubs = null, filtroPub = 'todos', buscandoPub = false, fin = null, buscandoFin = false;
+  let favoritos = new Set();
+  try { favoritos = new Set(JSON.parse(localStorage.getItem('escritorio-favoritos') || '[]')); } catch { /* sem armazenamento */ }
   async function buscarFin(forcar) {
     if (buscandoFin || (!forcar && fin && Date.now() - fin.recebido < 60_000)) return;
     buscandoFin = true;
@@ -111,6 +114,14 @@
     }
     const pp = e.target.closest('[data-pedir]');
     if (pp) { const sel = el.querySelector('#prSetor'); if (sel) sel.value = pp.dataset.pedir; el.querySelector('#prTexto').focus(); return; }
+    const fv = e.target.closest('[data-favorito]');
+    if (fv) {
+      const id = fv.dataset.favorito;
+      favoritos.has(id) ? favoritos.delete(id) : favoritos.add(id);
+      try { localStorage.setItem('escritorio-favoritos', JSON.stringify([...favoritos])); } catch { /* ignora */ }
+      desenhar();
+      return;
+    }
     const ex = e.target.closest('[data-extra]');
     if (ex) { abrir(false); abrirExtra(ex.dataset.extra); }
   });
@@ -272,6 +283,7 @@
     const kr = e.target.dataset?.rascunho;
     if (kr) rascunhos[kr] = e.target.value;
     if (e.target.id === 'filtroEquipe') { filtroEquipe = e.target.value; desenharEquipeLista(); }
+    if (e.target.id === 'filtroTextoAtiv') { filtroTextoAtiv = e.target.value; desenharAtividadeLista(); }
     if (e.target.name === 'filtroAtiv') { filtroAtiv = e.target.value; desenhar(); }
     if (e.target.name === 'filtroPub') { filtroPub = e.target.value; desenhar(); }
     if (e.target.name === 'p' && e.target.closest('form.nova-reuniao')) {
@@ -425,6 +437,15 @@
   function cartao(titulo, sub, cor, attrs) {
     return `<div class="cartao-k" ${attrs || ''}><i style="background:${cor}"></i><div><b>${esc(titulo)}</b>${sub ? `<small>${esc(sub)}</small>` : ''}</div></div>`;
   }
+  // coluna do kanban (id opcional: dá para achar e atualizar só ela quando um dado chega depois)
+  const col = (titulo, n, itens, vazio, id) => `<div class="coluna-k"${id ? ` id="${id}"` : ''}><h4>${titulo}<span>${n}</span></h4>${itens.length ? itens.join('') : `<p class="vazio-k">${vazio}</p>`}</div>`;
+  // opções de <select> de projeto a partir de setoresLista (carrega em segundo plano); filtro opcional
+  const opcoesSetor = filtro => (setoresLista || []).filter(filtro || (() => true)).map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('');
+  const feitosLista = () => (relatoriosCache || []).filter(r => Date.now() - r.fim < 864e5).sort((a, b) => b.fim - a.fim).slice(0, 12);
+  function colFeitosHtml() {
+    const feitos = feitosLista();
+    return col('Feito em 24h', feitos.length, feitos.map(r => cartao(curto(r.pedido, 70), `${r.agente} · ${nomeSala(r.setor)} · ${quando(r.fim)}`, corSetor(r.setor), r.sessao ? `data-agente="${esc(r.sessao)}"` : '')), 'Nenhuma entrega nas últimas 24h.', 'colFeitos');
+  }
   function plano() {
     const ordens = ultimo?.ordens || [], ags = ultimo?.agentes || [];
     const fila = ordens.filter(o => o.naFila).sort((a, b) => a.criada - b.criada);
@@ -443,8 +464,6 @@
       ...(ultimo?.projetos || []).filter(p => p.status === 'aguardando').map(p => cartao('Plano do gerente para aprovar', p.titulo, 'var(--aviso)', 'data-extra="projetos"')),
       ...(ultimo?.aprendizado?.propostas || []).filter(p => p.status === 'aguardando').map(p => cartao(`${p.nome} quer melhorar o manual`, curto(p.resumo, 70), 'var(--destaque)', 'data-extra="aprendizado"')),
     ];
-    const feitos = (relatoriosCache || []).filter(r => Date.now() - r.fim < 864e5).sort((a, b) => b.fim - a.fim).slice(0, 12);
-    const col = (titulo, n, itens, vazio) => `<div class="coluna-k"><h4>${titulo}<span>${n}</span></h4>${itens.length ? itens.join('') : `<p class="vazio-k">${vazio}</p>`}</div>`;
     const projetos = (ultimo?.projetos || []).filter(p => ['planejando', 'aguardando', 'executando'].includes(p.status));
     const rotP = { planejando: 'gerente planejando', aguardando: 'esperando sua aprovação', executando: 'em execução' };
     const eventos = proximosEventos();
@@ -482,7 +501,7 @@
           <div class="meta-acoes"><button data-meta="${esc(m.id)}:concluir">${m.status === 'concluida' ? 'Reabrir' : 'Marcar meta como concluída'}</button><button class="sutil" data-meta="${esc(m.id)}:apagar">Apagar</button></div></details>`;
       }).join('') : '<p class="vazio-g">Nenhuma meta ainda.</p>'}
       <details class="nova-meta-d" data-det="nova-meta"><summary>+ Nova meta</summary>
-        <form class="nova-meta"><div class="linha-f"><select name="setor" aria-label="Projeto">${(setoresLista || []).map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select>
+        <form class="nova-meta"><div class="linha-f"><select name="setor" aria-label="Projeto" id="selSetorMeta">${opcoesSetor()}</select>
           <input name="prazo" type="date" data-rascunho="meta:prazo" aria-label="Prazo"></div>
           <input name="titulo" data-rascunho="meta:titulo" maxlength="160" placeholder="Ex.: lançar o app na loja" aria-label="Meta">
           <textarea name="passos" data-rascunho="meta:passos" rows="3" placeholder="Passos, um por linha (opcional)" aria-label="Passos"></textarea>
@@ -492,7 +511,7 @@
         ${col('Na fila', fila.length, fila.map(o => cartao(o.pedido, `${nomeSala(o.setor)} · ${o.triando ? 'escolhendo especialista' : 'esperando vaga'}`, corSetor(o.setor))), 'Nada esperando.')}
         ${col('Fazendo', fazendo.length, fazendo.map(a => cartao(a.nome, `${nomeSala(a.setor)} · ${curto(a.acao || a.pedido || 'trabalhando', 60)}`, corSetor(a.setor), `data-agente="${esc(a.id)}"`)), 'Ninguém trabalhando agora.')}
         ${col('Esperando você', esperando.length, esperando, 'Nada esperando você.')}
-        ${col('Feito em 24h', feitos.length, feitos.map(r => cartao(curto(r.pedido, 70), `${r.agente} · ${nomeSala(r.setor)} · ${quando(r.fim)}`, corSetor(r.setor), r.sessao ? `data-agente="${esc(r.sessao)}"` : '')), 'Nenhuma entrega nas últimas 24h.')}
+        ${colFeitosHtml()}
       </div></section>
       <section class="bloco"><h3>Próximos 7 dias</h3><p class="sub">Rotinas automáticas e tarefas que você agendou.</p>
         ${eventos.length ? `<ol class="linha-tempo">${linhaTempo}</ol>` : '<p class="vazio-g">Nada programado.</p>'}
@@ -511,7 +530,7 @@
         ${andando.falas.map(f => `<div class="fala"><span class="fala-quem">${esc(nomeEsp(f.quem))} <small>rodada ${f.rodada}</small></span><p>${esc(f.texto)}</p></div>`).join('') || '<p class="vazio-g">Eles estão olhando o projeto e pensando…</p>'}</div>` : '';
     const sel = rascunhos['reu:sel'] || [];
     const form = andando ? '' : `<form class="nova-reuniao"><textarea name="tema" data-rascunho="reu:tema" rows="2" maxlength="3000" placeholder="Qual é o problema? Ex.: o app está lento para abrir a agenda. Qual o melhor caminho?" aria-label="Assunto da reunião"></textarea>
-        <div class="linha-f"><select name="setor" aria-label="Projeto">${(setoresLista || []).map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select><span class="dica-r">Escolha 2 ou 3:</span></div>
+        <div class="linha-f"><select name="setor" aria-label="Projeto" id="selSetorReuniao">${opcoesSetor()}</select><span class="dica-r">Escolha 2 ou 3:</span></div>
         <div class="escolha-esp">${(ultimo?.especialidades || []).filter(e => e.id !== 'po').map(e => `<label class="${sel.includes(e.id) ? 'marcado' : ''}"><input type="checkbox" name="p" value="${esc(e.id)}" ${sel.includes(e.id) ? 'checked' : ''}>${esc(nomeEsp(e.id))} <small>${esc(papelEsp(e.id))}</small></label>`).join('')}</div>
         <button type="submit" class="principal-g">Chamar reunião</button></form>`;
     const passadas = rs.filter(r => r.status !== 'andando').slice(0, 5);
@@ -565,7 +584,7 @@
     return `<section class="bloco"><h3>Servidor (${esc(ultimo?.nomeServidor || 'servidor')})</h3><p class="sub">Últimos 7 dias. A linha tracejada é o ponto de alerta.</p>
         <div class="metricas">${medidor('Memória', m?.mem, 'mem', 90, 'quanto da RAM está em uso')}${medidor('Disco', m?.disco, 'disco', 85, 'espaço ocupado')}${medidor('Swap', m?.swap, 'swap', 90, 'memória de reserva no disco')}</div></section>
       <section class="bloco"><h3>Sistemas</h3><p class="sub">Racks do datacenter${ultimo?.servidoresEm ? ', conferidos ' + quando(ultimo.servidoresEm) : ''}.</p>
-        <ul class="lista-g sistemas">${servs.map(g => `<li><i class="ponto-cor ${esc(g.saude)}"></i><b>${esc(g.nome)}</b><small>${esc(g.tipo === 'interno' ? 'uso interno' : g.tipo === 'infra' ? 'infraestrutura' : 'produção')} · ${g.containers.length} containers · ${esc(rotSaude[g.saude] || g.saude)}</small></li>`).join('')}</ul></section>
+        <ul class="lista-g sistemas">${servs.map(g => `<li><i class="ponto-cor ${esc(g.saude)}"></i><b>${esc(g.nome)}</b><small>${esc(g.tipo === 'interno' ? 'uso interno' : g.tipo === 'infra' ? 'infraestrutura' : 'produção')} · ${g.containers.length} containers · ${esc(rotSaude[g.saude] || g.saude)}</small>${g.legenda ? `<small class="descricao-g">${esc(g.legenda)}</small>` : ''}</li>`).join('')}</ul></section>
       <section class="bloco"><h3>WhatsApp das lojas</h3><p class="sub">Conferido ${esc(quando(dados.whatsapp.conferidoEm))}. Número travado vira incidente depois de 2h sem mensagem em horário comercial.</p>
         ${wa.length ? `<ul class="lista-g">${wa.map(n => `<li><i class="ponto-cor ${n.estado !== 'open' ? 'parado' : n.minutosParado >= 120 ? 'atencao' : 'ok'}"></i><b>${esc(n.loja)}</b><small>${esc(n.sistema)} · ${n.estado === 'open' ? 'conectado' : 'desconectado'} · última mensagem ${esc(quando(n.ultima))} · ${n.mensagens7d} de clientes na semana</small></li>`).join('')}</ul>` : '<p class="vazio-g">Ainda não conferido.</p>'}</section>
       <section class="bloco"><h3>Avisos técnicos</h3><p class="sub">Os últimos problemas que o escritório percebeu, antes de virar um serviço parado.</p>
@@ -573,6 +592,12 @@
       <section class="bloco"><h3>Rotinas do escritório</h3><p class="sub">Se alguma parar de rodar, aparece aqui.</p>
         <ul class="lista-g">${rotinasLista.map(r => `<li><i class="ponto-cor ${r.erro ? 'parado' : r.ultima ? 'ok' : ''}"></i><b>${esc(r.nome)}</b><small>${esc(r.freq)} · ${r.ultima ? 'última ' + esc(quando(r.ultima)) : 'ainda não rodou'}${r.erro ? ' · erro: ' + esc(curto(r.erro, 90)) : ''}</small></li>`).join('')}</ul>
         <p class="rodape-g">Escritório no ar ${esc(quando(dados.escritorio.desde).replace('há ', 'há '))} · ${dados.escritorio.memoriaMB} MB de memória · ${dados.escritorio.relatorios} relatórios guardados${bk.ultimo ? ' · backup: ' + esc(bk.ultimo) : ''}</p></section>`;
+  }
+
+  function ajudaAba() {
+    const perguntas = ultimo?.ajuda || [];
+    return `<section class="bloco"><h3>Perguntas frequentes</h3><p class="sub">Respostas simples para as dúvidas que mais aparecem. Clique numa pergunta para ver a resposta.</p>
+      ${perguntas.length ? perguntas.map((p, i) => `<details class="faq" data-det="ajuda:${i}"><summary>${esc(p.pergunta)}</summary><p>${esc(p.resposta)}</p></details>`).join('') : '<p class="vazio-g">Ainda não há perguntas cadastradas.</p>'}</section>`;
   }
 
   function projetosAba() {
@@ -587,10 +612,12 @@
       const pend = (ultimo?.deploys || []).filter(d => d.setor === st.id && d.status === 'aguardando').length + (ultimo?.previas || []).filter(p => p.setor === st.id && p.status === 'ativa').length;
       const inc = incs.filter(i => i.setor === st.id).length, idsN = (ultimo?.ideias || []).filter(i => i.setor === st.id && i.status !== 'mandada').length;
       const po = (ultimo?.pos || []).find(x => x.setor === st.id);
+      const fav = favoritos.has(st.id);
       const peso = trab.length * 100 + esp.length * 50 + inc * 200 + (num?.semana || 0);
-      return { peso, html: `<article class="ficha-proj">
+      return { peso, fav, html: `<article class="ficha-proj${fav ? ' favorita' : ''}">
         <header><i class="faixa" style="background:${esc(st.cor || '#888780')}"></i><div><b>${esc(st.nome)}</b>
           <small>${num ? `${num.tarefas} entregas em 30 dias · ${num.semana} na semana` : 'sem entregas recentes'}</small></div>
+          <button class="favorito${fav ? ' ativo' : ''}" data-favorito="${esc(st.id)}" aria-pressed="${fav}" title="${fav ? 'Desafixar projeto' : 'Fixar projeto no topo'}" aria-label="${fav ? 'Desafixar' : 'Fixar'} ${esc(st.nome)}">★</button>
           ${saude ? `<span class="saude ${esc(saude)}">${{ ok: 'no ar', atencao: 'atenção', parado: 'fora do ar' }[saude]}</span>` : ''}</header>
         <div class="chips">${trab.length ? `<span class="chip">${trab.length} trabalhando</span>` : ''}${esp.length ? `<span class="chip aviso">${esp.length} esperando você</span>` : ''}
           ${inc ? `<span class="chip ruim">${inc} incidente${inc > 1 ? 's' : ''}</span>` : ''}${pend ? `<span class="chip aviso">${pend} para você ver</span>` : ''}
@@ -598,13 +625,34 @@
         ${ult.length ? `<ul class="ultimas">${ult.map(u => `<li ${u.sessao ? `data-agente="${esc(u.sessao)}"` : ''}><span>${esc(u.pedido)}</span><small>${esc(u.agente)} · ${esc(quando(u.t))}</small></li>`).join('')}</ul>` : ''}
         <footer><button data-pedir="${esc(st.id)}">Pedir algo</button>${po && avatares.get('po:' + st.id) ? `<button data-agente="po:${esc(st.id)}">Falar com ${esc(po.nome)} (PO)</button>` : ''}</footer>
       </article>` };
-    }).sort((a, b) => b.peso - a.peso);
-    return `<section class="bloco solto largo"><h3>Seus projetos</h3><p class="sub">Os mais movimentados primeiro.</p></section>${fichas.map(f => f.html).join('')}`;
+    }).sort((a, b) => (b.fav - a.fav) || (b.peso - a.peso));
+    return `<section class="bloco solto largo"><h3>Seus projetos</h3><p class="sub">Fixados primeiro, depois os mais movimentados.</p></section>${fichas.map(f => f.html).join('')}`;
+  }
+  // fileira simples de barrinhas (html/css, sem svg): quanto a equipe trabalhou em cada um dos últimos 14 dias
+  function barrinhasDias() {
+    const dias = dados?.dias || [];
+    if (!dias.length) return '';
+    const maior = Math.max(1, ...dias.map(d => dados.porDia[d]?.total || 0));
+    const cols = dias.map((d, i) => {
+      const n = dados.porDia[d]?.total || 0, h = Math.max(4, Math.round(n / maior * 100));
+      return `<li title="${esc(diaCurto(d))} · ${n} entrega${n === 1 ? '' : 's'}"><span style="height:${h}%"></span><small>${i === dias.length - 1 ? 'hoje' : diaCurto(d)}</small></li>`;
+    }).join('');
+    return `<ul class="barrinhas-dias" role="img" aria-label="Tarefas entregues por dia nos últimos 14 dias">${cols}</ul>`;
   }
   function atividadeAba() {
     if (!dados) return carregando();
+    const filtros = [['tudo', 'Tudo'], ['entrega', 'Entregas'], ['incidente', 'Incidentes'], ['publicacao', 'Publicações'], ['outros', 'Projetos e ideias']];
+    return `<section class="bloco"><h3>Movimento dos últimos 14 dias</h3><p class="sub">Quantas tarefas a equipe entregou em cada dia. Passe o mouse numa barra para ver o número.</p>${barrinhasDias()}</section>
+      <section class="bloco"><h3>O que aconteceu</h3><p class="sub">Últimas 48 horas no escritório.</p>
+      <div class="filtros" role="radiogroup">${filtros.map(([k, r]) => `<label class="${filtroAtiv === k ? 'ativo' : ''}"><input type="radio" name="filtroAtiv" value="${k}" ${filtroAtiv === k ? 'checked' : ''}>${r}</label>`).join('')}</div>
+      <input id="filtroTextoAtiv" type="search" placeholder="Procurar por projeto ou palavra do pedido" value="${esc(filtroTextoAtiv)}" autocomplete="off"></section>
+      <div id="atividadeLista">${listaAtividade()}</div>`;
+  }
+  function listaAtividade() {
     const grupos = { tudo: null, entrega: ['entrega'], incidente: ['incidente', 'resolvido'], publicacao: ['publicacao', 'publicado', 'previa'], outros: ['projeto', 'ideia'] };
-    const lista = dados.atividade.filter(a => !grupos[filtroAtiv] || grupos[filtroAtiv].includes(a.tipo));
+    const f = filtroTextoAtiv.trim().toLowerCase();
+    const lista = dados.atividade.filter(a => (!grupos[filtroAtiv] || grupos[filtroAtiv].includes(a.tipo))
+      && (!f || [a.texto, nomeSala(a.setor)].join(' ').toLowerCase().includes(f)));
     const rotDia = t => { const d = new Date(t), h = new Date(); const ontem = new Date(h); ontem.setDate(h.getDate() - 1);
       return d.toDateString() === h.toDateString() ? 'Hoje' : d.toDateString() === ontem.toDateString() ? 'Ontem' : d.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: '2-digit' }); };
     let dia = '';
@@ -614,11 +662,9 @@
       return `${cab}<li class="at ${esc(a.tipo)}" ${a.sessao ? `data-agente="${esc(a.sessao)}"` : ''}><time>${esc(new Date(a.t).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }))}</time>
         <span><b>${esc(a.texto)}</b><small><i style="background:${corSetor(a.setor)}"></i>${esc(nomeSala(a.setor))}${a.ok === true ? ' · aprovado pelo QA' : a.ok === false ? ' · QA pediu ajuste' : ''}</small></span></li>`;
     }).join('');
-    const filtros = [['tudo', 'Tudo'], ['entrega', 'Entregas'], ['incidente', 'Incidentes'], ['publicacao', 'Publicações'], ['outros', 'Projetos e ideias']];
-    return `<section class="bloco"><h3>O que aconteceu</h3><p class="sub">Últimas 48 horas no escritório.</p>
-      <div class="filtros" role="radiogroup">${filtros.map(([k, r]) => `<label class="${filtroAtiv === k ? 'ativo' : ''}"><input type="radio" name="filtroAtiv" value="${k}" ${filtroAtiv === k ? 'checked' : ''}>${r}</label>`).join('')}</div>
-      ${lista.length ? `<ol class="linha-tempo atividade">${itens}</ol>` : '<p class="vazio-g">Nada por aqui nesse período.</p>'}</section>`;
+    return lista.length ? `<ol class="linha-tempo atividade">${itens}</ol>` : '<p class="vazio-g">Nada por aqui nesse período.</p>';
   }
+  function desenharAtividadeLista() { const l = el.querySelector('#atividadeLista'); if (l && dados) l.innerHTML = listaAtividade(); }
 
   function publicacoesAba() {
     if (!pubs) { buscarPub(); return carregando(); }
@@ -688,7 +734,6 @@
     const max = Math.max(1, ...ps.map(p => p.total));
     const semCadastro = !fin.custos.length;
     const cats = { claude: 'Assinatura do Claude', servidor: 'Servidor (VPS)', dominio: 'Domínio', loja: 'Loja de apps', api: 'API paga', servico: 'Serviço', outro: 'Outro' };
-    const projs = (setoresLista || []).filter(x => x.id !== 'escritorio');
     return `<div class="kpis largo">${kpi(reais(fin.totalMensal), 'custo por mês')}${kpi(reais(fin.assinatura), 'assinatura do Claude')}${kpi(reais(fin.servidor), 'servidor')}</div>
       ${semCadastro ? `<section class="bloco alerta-pub"><h3>Comece cadastrando os custos</h3><p class="sub" style="margin:0">Cadastre a assinatura do Claude (categoria “Assinatura do Claude”) e a VPS (categoria “Servidor”) como custos gerais. O Financeiro divide entre os projetos pelo uso. Depois cadastre domínios, lojas de apps e APIs em cada projeto.</p></section>` : ''}
       <section class="bloco"><h3>Quanto cada projeto custa por mês</h3><p class="sub">Custos diretos + parte da assinatura do Claude (pelo uso nos últimos 30 dias) + parte do servidor (70% memória, 30% disco). As partes são estimativas.</p>
@@ -707,12 +752,34 @@
           <input name="valor" data-rascunho="custo:valor" inputmode="decimal" placeholder="Valor em R$" aria-label="Valor em reais" required>
           <select name="recorrencia" aria-label="Recorrência"><option value="mensal">por mês</option><option value="anual">por ano</option><option value="unico">uma vez</option></select>
           <select name="categoria" aria-label="Categoria">${Object.entries(cats).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
-          <select name="setor" aria-label="Projeto"><option value="geral">Geral (dividir entre projetos)</option>${projs.filter(x => x.id !== 'geral').map(x => `<option value="${esc(x.id)}">${esc(x.nome)}</option>`).join('')}</select>
+          <select name="setor" aria-label="Projeto" id="selSetorCusto"><option value="geral">Geral (dividir entre projetos)</option>${opcoesSetor(x => x.id !== 'escritorio' && x.id !== 'geral')}</select>
           <button type="submit" class="principal-g">Cadastrar</button></form></section>
       <section class="bloco"><h3>Relatório do Financeiro</h3><p class="sub">Toda sexta às 16h o Financeiro analisa os números, aponta gastos fora do normal e propõe economias.</p>
         <div class="pend-acoes"><button data-dep-ver="financeiro">Ver relatórios</button><button class="principal-g" data-dep-rodar="financeiro">Pedir análise agora</button></div></section>`;
   }
 
+  // html da aba atual (usado no redesenho normal e para recalcular o cache sem repintar, nas atualizações parciais abaixo)
+  function htmlDaAba() {
+    return aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'empresa' ? empresaAba() : aba === 'financeiro' ? financeiroAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : aba === 'ajuda' ? ajudaAba() : geral();
+  }
+  // relatórios chegam um instante depois do resto: só troca a coluna "Feito em 24h", sem repintar a aba inteira
+  function atualizarFeitosEmPlano() {
+    if (!aberta || aba !== 'plano') return;
+    const alvo = conteudo.querySelector('#colFeitos');
+    if (!alvo) return desenhar(); // a tela mudou nesse meio-tempo: desenha tudo de novo, por segurança
+    alvo.outerHTML = colFeitosHtml();
+    ultimoHtml = htmlDaAba(); // mantém o cache em dia para não repintar tudo de novo na próxima atualização
+  }
+  // setores também chegam depois: só completa os <select> de projeto que já estão na tela
+  function preencherSelectsDeSetor() {
+    if (!aberta || !setoresLista) return;
+    const meta = conteudo.querySelector('#selSetorMeta'), reuniao = conteudo.querySelector('#selSetorReuniao'), custo = conteudo.querySelector('#selSetorCusto');
+    let mudou = false;
+    if (meta && !meta.options.length) { meta.innerHTML = opcoesSetor(); mudou = true; }
+    if (reuniao && !reuniao.options.length) { reuniao.innerHTML = opcoesSetor(); mudou = true; }
+    if (custo && custo.options.length <= 1) { custo.insertAdjacentHTML('beforeend', opcoesSetor(x => x.id !== 'escritorio' && x.id !== 'geral')); mudou = true; }
+    if (mudou) ultimoHtml = htmlDaAba();
+  }
   function desenhar() {
     if (!aberta) return;
     const foco = document.activeElement;
@@ -721,15 +788,15 @@
     const av = el.querySelector('#aoVivoG');
     if (av) av.textContent = 'ao vivo · ' + new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
     const pos = conteudo.scrollTop;
-    const html = aba === 'plano' ? plano() : aba === 'projetos' ? projetosAba() : aba === 'empresa' ? empresaAba() : aba === 'financeiro' ? financeiroAba() : aba === 'publicacoes' ? publicacoesAba() : aba === 'atividade' ? atividadeAba() : aba === 'equipe' ? equipe() : aba === 'infra' ? infra() : geral();
+    const html = htmlDaAba();
     if (html === ultimoHtml && aba === ultimaAba) return; // nada mudou: não mexe na tela
     ultimoHtml = html; ultimaAba = aba;
     conteudo.innerHTML = html;
     conteudo.scrollTop = pos;
     conteudo.querySelectorAll('[data-rascunho]').forEach(x => { if (rascunhos[x.dataset.rascunho] != null) x.value = rascunhos[x.dataset.rascunho]; });
     conteudo.querySelectorAll('details[data-det]').forEach(x => { if (detAbertos.has(x.dataset.det)) x.open = true; });
-    if (aba === 'plano' && !relatoriosCache?.length) carregarRelatorios().then(() => aberta && aba === 'plano' && desenhar());
-    if ((aba === 'plano' || aba === 'equipe' || aba === 'financeiro') && !setoresLista) carregarSetores().then(() => aberta && desenhar());
+    if (aba === 'plano' && !relatoriosCache?.length) carregarRelatorios().then(atualizarFeitosEmPlano);
+    if ((aba === 'plano' || aba === 'equipe' || aba === 'financeiro') && !setoresLista) carregarSetores().then(preencherSelectsDeSetor);
   }
 })();
 document.getElementById('bPainel')?.addEventListener('click', () => window.abrirPainel?.());

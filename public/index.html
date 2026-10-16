@@ -15,11 +15,14 @@
     <button class="pilula alerta" id="publicacoes" hidden></button>
     <button class="pilula alerta" id="pedConvidados" hidden></button>
     <button class="pilula alerta" id="ideiasCresc" hidden></button>
+    <button class="pilula aprovar" id="paraAprovar" hidden title="Abrir a caixa de aprovações (tecla A)"></button>
     <button class="pilula" id="melhorias" hidden></button>
     <span class="pilula" id="clima" hidden></span>
     <span class="pilula" id="conexao">conectando…</span>
+    <button class="pilula" id="bNotificacoes" title="Receber um aviso do navegador quando surgir um incidente novo ou uma publicação esperando o botão Publicar">Ativar avisos</button>
     <button id="bOrdem" class="principal">Nova tarefa</button>
     <button id="bMesa">Minha mesa</button>
+    <button id="bMapa" title="Mapa do prédio: veja e pule para qualquer sala">Mapa</button>
     <button id="bPapelada" title="Suas conversas com os agentes (antiga papelada)">Conversas</button>
     <button id="bProjetos">Projetos</button>
     <button id="bAgenda">Agenda</button>
@@ -34,6 +37,7 @@
     <section class="papelada" id="papelada" hidden aria-label="Conversas"></section>
     <section class="ordem" id="ordem" hidden aria-label="Nova tarefa"></section>
     <section class="extra" id="extra" hidden></section>
+    <div class="mapa" id="mapa" hidden aria-label="Mapa do prédio"></div>
     <div class="ajustes" id="ajustes" hidden>
       <button id="bSom" aria-pressed="true">Som ligado</button>
       <button id="bAmbiente" aria-pressed="false">Som de ambiente: desligado</button>
@@ -42,6 +46,7 @@
       <button id="bEstrategista">Falar com o Estrategista</button>
       <button id="bAprendizado">Melhorias da equipe</button>
       <button id="bConvidados">Convidados</button>
+      <button id="bRegras">Regras do escritório</button>
       <button id="bSala">Minha sala</button>
       <button id="bSair">Sair</button>
     </div>
@@ -56,5 +61,6 @@
 <script src="/app.js"></script>
 <script src="/painel.js"></script>
 <script src="/busca.js"></script>
+<script src="/aprovacoes.js"></script>
 </body>
 </html>
